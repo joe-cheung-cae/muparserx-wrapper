@@ -116,6 +116,12 @@ Run tests:
 ctest --test-dir build --output-on-failure
 ```
 
+Run a single test:
+
+```bash
+ctest --test-dir build -R '^test_expression_runtime$' --output-on-failure
+```
+
 Run the example:
 
 ```bash
@@ -124,19 +130,38 @@ Run the example:
 
 ## CMake Integration
 
-This project builds a library target named `tfp_expression`.
+This project builds the `tfp_expression` target and exports the namespaced alias `tfp::expression`.
+
+Consume it directly from source:
 
 ```cmake
 find_package(muparserx REQUIRED CONFIG)
 find_package(nlohmann_json REQUIRED CONFIG)
 add_subdirectory(path/to/muparserx-wrapper)
-target_link_libraries(your_target PRIVATE tfp_expression)
+target_link_libraries(your_target PRIVATE tfp::expression)
+```
+
+When used as a subdirectory, tests and examples are disabled by default unless the parent project enables `TFP_EXPRESSION_BUILD_TESTS` or `TFP_EXPRESSION_BUILD_EXAMPLES`.
+
+Install and consume it as a package:
+
+```bash
+cmake -S . -B build-install \
+  -DCMAKE_PREFIX_PATH="/path/to/muparserx;/path/to/nlohmann-json" \
+  -DCMAKE_INSTALL_PREFIX=/tmp/tfp-expression-install
+cmake --build build-install --parallel
+cmake --install build-install
+```
+
+```cmake
+find_package(tfpExpression CONFIG REQUIRED)
+target_link_libraries(your_target PRIVATE tfp::expression)
 ```
 
 Include the public API:
 
 ```cpp
-#include "tfp/utility/expression/expression_runtime.h"
+#include "tfp/utility/expression/expression.h"
 ```
 
 ## JSON Format

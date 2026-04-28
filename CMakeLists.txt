@@ -1,16 +1,18 @@
 cmake_minimum_required(VERSION 3.14)
-project(muparserx_wrapper CXX)
+project(muparserx_wrapper VERSION 1.0.0 LANGUAGES CXX)
 
-include(CTest)
+include(GNUInstallDirs)
+include(CMakePackageConfigHelpers)
 
-set(CMAKE_CXX_STANDARD 17)
-set(CMAKE_CXX_STANDARD_REQUIRED ON)
-set(CMAKE_CXX_EXTENSIONS OFF)
+set(TFP_EXPRESSION_IS_TOP_LEVEL OFF)
+if(CMAKE_SOURCE_DIR STREQUAL PROJECT_SOURCE_DIR)
+    set(TFP_EXPRESSION_IS_TOP_LEVEL ON)
+endif()
 
-option(TFP_EXPRESSION_BUILD_TESTS "enable building tfp expression runtime tests" ON)
-option(TFP_EXPRESSION_BUILD_EXAMPLES "enable building tfp expression runtime examples" ON)
+option(TFP_EXPRESSION_BUILD_TESTS "enable building tfp expression runtime tests" ${TFP_EXPRESSION_IS_TOP_LEVEL})
+option(TFP_EXPRESSION_BUILD_EXAMPLES "enable building tfp expression runtime examples" ${TFP_EXPRESSION_IS_TOP_LEVEL})
 option(TFP_EXPRESSION_BUILD_STATIC "build tfp_expression as a static library" OFF)
-option(TFP_EXPRESSION_STATIC_GNU_RUNTIME "statically link libstdc++ and libgcc for consumers on GNU/MinGW toolchains" ON)
+option(TFP_EXPRESSION_STATIC_GNU_RUNTIME "statically link libstdc++ and libgcc for this library on GNU/MinGW toolchains" ON)
 
 find_package(muparserx REQUIRED CONFIG)
 find_package(nlohmann_json 3.11.0 REQUIRED CONFIG)
@@ -34,26 +36,72 @@ else()
     add_library(tfp_expression SHARED ${TFP_EXPRESSION_SOURCES})
 endif()
 
+add_library(tfp::expression ALIAS tfp_expression)
+
+set_target_properties(tfp_expression PROPERTIES
+    POSITION_INDEPENDENT_CODE ON
+    EXPORT_NAME expression
+)
+
 target_compile_features(tfp_expression PUBLIC cxx_std_17)
 target_include_directories(tfp_expression
     PUBLIC
-        ${CMAKE_CURRENT_SOURCE_DIR}/include
+        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+        $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>
     PRIVATE
         ${CMAKE_CURRENT_SOURCE_DIR}/src/utility/expression
         ${muparserx_INCLUDE_DIRS}
 )
 target_link_libraries(tfp_expression
-    PRIVATE
+    PUBLIC
         ${muparserx_LIBRARIES}
+    PRIVATE
         nlohmann_json::nlohmann_json
 )
 
 if(TFP_EXPRESSION_STATIC_GNU_RUNTIME AND
    (CMAKE_CXX_COMPILER_ID STREQUAL "GNU" OR CMAKE_CXX_COMPILER_ID STREQUAL "MinGW"))
-    target_link_options(tfp_expression INTERFACE -static-libstdc++ -static-libgcc)
+    target_link_options(tfp_expression PRIVATE -static-libstdc++ -static-libgcc)
 endif()
 
+install(TARGETS tfp_expression
+    EXPORT tfpExpressionTargets
+    LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
+    ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
+    RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
+    INCLUDES DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
+)
+
+install(DIRECTORY include/
+    DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
+)
+
+install(EXPORT tfpExpressionTargets
+    FILE tfpExpressionTargets.cmake
+    NAMESPACE tfp::
+    DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/tfpExpression
+)
+
+configure_package_config_file(
+    cmake/tfpExpressionConfig.cmake.in
+    ${CMAKE_CURRENT_BINARY_DIR}/tfpExpressionConfig.cmake
+    INSTALL_DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/tfpExpression
+)
+
+write_basic_package_version_file(
+    ${CMAKE_CURRENT_BINARY_DIR}/tfpExpressionConfigVersion.cmake
+    VERSION ${PROJECT_VERSION}
+    COMPATIBILITY SameMajorVersion
+)
+
+install(FILES
+    ${CMAKE_CURRENT_BINARY_DIR}/tfpExpressionConfig.cmake
+    ${CMAKE_CURRENT_BINARY_DIR}/tfpExpressionConfigVersion.cmake
+    DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/tfpExpression
+)
+
 if(TFP_EXPRESSION_BUILD_TESTS)
+    include(CTest)
     enable_testing()
     set(TFP_EXPRESSION_TESTS
         test_table_function
@@ -61,6 +109,7 @@ if(TFP_EXPRESSION_BUILD_TESTS)
         test_constant_resolver
         test_expression_runtime
         test_expression_evaluate_loop
+        test_expression_handle
     )
 
     foreach(test_name ${TFP_EXPRESSION_TESTS})

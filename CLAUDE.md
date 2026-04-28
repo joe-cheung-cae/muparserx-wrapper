@@ -27,6 +27,24 @@ Run the example program:
 ./build-findpkg/expression_runtime_example
 ```
 
+Stage an install tree for package-consumer verification:
+
+```bash
+cmake --install build-findpkg --prefix /tmp/tfp-expression-install
+```
+
+Smoke-test subdirectory and installed-package consumers:
+
+```bash
+cmake -S tests/cmake/subdirectory-consumer -B build-subdir-smoke \
+  -DCMAKE_PREFIX_PATH="/tmp/muparserx-install;/tmp/nlohmann-json-install"
+cmake --build build-subdir-smoke --parallel
+
+cmake -S tests/cmake/package-consumer -B build-package-smoke \
+  -DCMAKE_PREFIX_PATH="/tmp/tfp-expression-install;/tmp/muparserx-install;/tmp/nlohmann-json-install"
+cmake --build build-package-smoke --parallel
+```
+
 The repository also contains a `build/` directory, but in this checkout it may fail to reconfigure if `muparserx` is not discoverable in that cache. Prefer `build-findpkg/` when using the local `/tmp/...-install` dependency prefixes.
 
 There is no dedicated lint or formatting target in the current CMake configuration.
