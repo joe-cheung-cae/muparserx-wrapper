@@ -19,10 +19,10 @@ int main()
           "data": [[0.0, 0.0], [1.0, 2.0], [2.0, 4.0]]
         }
       },
-      "expressions": {
-        "fx": {"expression": "rho0 * wind(t)", "wordable": ["t"]},
-        "sum_xy": {"expression": "x + 10.0 * y", "wordable": ["x", "y"]}
-      }
+      "expressions": [
+        {"name": "fx", "expression": "rho0 * wind(t)", "wordable": ["t"]},
+        {"name": "sum_xy", "expression": "x + 10.0 * y", "wordable": ["x", "y"]}
+      ]
     })json";
 
     ExpressionRuntime runtime;

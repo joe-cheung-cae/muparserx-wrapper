@@ -1,7 +1,6 @@
 cmake_minimum_required(VERSION 3.14)
 project(muparserx_wrapper CXX)
 
-include(FetchContent)
 include(CTest)
 
 set(CMAKE_CXX_STANDARD 17)
@@ -10,19 +9,11 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 
 option(TFP_EXPRESSION_BUILD_TESTS "enable building tfp expression runtime tests" ON)
 option(TFP_EXPRESSION_BUILD_EXAMPLES "enable building tfp expression runtime examples" ON)
+option(TFP_EXPRESSION_BUILD_STATIC "build tfp_expression as a static library" OFF)
+option(TFP_EXPRESSION_STATIC_GNU_RUNTIME "statically link libstdc++ and libgcc for consumers on GNU/MinGW toolchains" ON)
 
-set(BUILD_EXAMPLES OFF CACHE BOOL "disable muparserx examples" FORCE)
-add_subdirectory(muparserx)
-
-find_package(nlohmann_json 3.11.0 QUIET)
-if(NOT nlohmann_json_FOUND)
-    FetchContent_Declare(
-        nlohmann_json
-        URL https://github.com/nlohmann/json/releases/download/v3.11.3/json.tar.xz
-        DOWNLOAD_EXTRACT_TIMESTAMP TRUE
-    )
-    FetchContent_MakeAvailable(nlohmann_json)
-endif()
+find_package(muparserx REQUIRED CONFIG)
+find_package(nlohmann_json 3.11.0 REQUIRED CONFIG)
 
 set(TFP_EXPRESSION_SOURCES
     src/utility/expression/constant_resolver.cpp
@@ -37,20 +28,30 @@ set(TFP_EXPRESSION_SOURCES
     src/utility/expression/table_function.cpp
 )
 
-add_library(tfp_expression ${TFP_EXPRESSION_SOURCES})
+if(TFP_EXPRESSION_BUILD_STATIC)
+    add_library(tfp_expression STATIC ${TFP_EXPRESSION_SOURCES})
+else()
+    add_library(tfp_expression SHARED ${TFP_EXPRESSION_SOURCES})
+endif()
+
 target_compile_features(tfp_expression PUBLIC cxx_std_17)
 target_include_directories(tfp_expression
     PUBLIC
         ${CMAKE_CURRENT_SOURCE_DIR}/include
     PRIVATE
         ${CMAKE_CURRENT_SOURCE_DIR}/src/utility/expression
-        ${CMAKE_CURRENT_SOURCE_DIR}/muparserx/parser
+        ${muparserx_INCLUDE_DIRS}
 )
 target_link_libraries(tfp_expression
     PRIVATE
-        muparserx
+        ${muparserx_LIBRARIES}
         nlohmann_json::nlohmann_json
 )
+
+if(TFP_EXPRESSION_STATIC_GNU_RUNTIME AND
+   (CMAKE_CXX_COMPILER_ID STREQUAL "GNU" OR CMAKE_CXX_COMPILER_ID STREQUAL "MinGW"))
+    target_link_options(tfp_expression INTERFACE -static-libstdc++ -static-libgcc)
+endif()
 
 if(TFP_EXPRESSION_BUILD_TESTS)
     enable_testing()

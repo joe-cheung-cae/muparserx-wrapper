@@ -13,9 +13,9 @@ int main()
           "data": [[0.0, 0.0], [1.0, 2.0], [2.0, 4.0]]
         }
       },
-      "expressions": {
-        "fx": {"expression": "rho0 * wind(t)", "wordable": ["t"]}
-      }
+      "expressions": [
+        {"name": "fx", "expression": "rho0 * wind(t)", "wordable": ["t"]}
+      ]
     })json");
 
     const tfp::utility::UnaryExpressionHandle fx = runtime.GetUnaryExpression("fx");

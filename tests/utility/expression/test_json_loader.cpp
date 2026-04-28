@@ -15,9 +15,9 @@ int main()
           "data": [[0.0, 0.0], [1.0, 2.0]]
         }
       },
-      "expressions": {
-        "fx": {"expression": "rho0 * wind(t)", "wordable": ["t"]}
-      }
+      "expressions": [
+        {"name": "fx", "expression": "rho0 * wind(t)", "wordable": ["t"]}
+      ]
     })json";
 
     ExpressionRuntime runtime;
@@ -63,6 +63,12 @@ int main()
 
     TFP_REQUIRE_THROWS(ExpressionError, ExpressionRuntime().LoadFromJsonString(R"json({
       "expressions": {"fx": {"expression": "t", "wordable": ["t", "t"]}}
+    })json"));
+
+    TFP_REQUIRE_THROWS(ExpressionError, ExpressionRuntime().LoadFromJsonString(R"json({
+      "expressions": [
+        {"expression": "t", "wordable": ["t"]}
+      ]
     })json"));
 
     return 0;
