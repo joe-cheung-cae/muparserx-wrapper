@@ -21,8 +21,14 @@ class ExpressionRuntimeImpl
 public:
     void Load(const ExpressionRuntimeConfig& config)
     {
+        // All top-level symbol names share one parser namespace, so conflicts
+        // must be rejected before any constants, tables, or expressions are
+        // compiled into partially initialized runtime state.
         CheckNameConflicts(config);
 
+        // Constants are resolved first because tables and expressions may refer
+        // to them, while constant expressions themselves are not allowed to
+        // depend on runtime variables or table callbacks.
         std::unordered_map<std::string, double> constants = ResolveConstants(config.constants);
 
         std::unordered_map<std::string, std::shared_ptr<const TableFunction> > tables;
@@ -48,6 +54,9 @@ public:
     UnaryExpressionHandle GetUnaryExpression(const std::string& name) const
     {
         std::shared_ptr<RuntimeExpression> expression = FindExpression(name);
+        // The same compiled expression representation supports both generic and
+        // unary handles, so arity is enforced when the specialized handle is
+        // requested rather than during the shared compile pipeline.
         if (expression->Arity() != 1)
         {
             throw ExpressionError(ExpressionErrorCode::InvalidArgument,
@@ -64,6 +73,9 @@ public:
 private:
     static void CheckNameConflicts(const ExpressionRuntimeConfig& config)
     {
+        // Constants, tables, and expressions are all registered into one
+        // global symbol namespace, so duplicate names would become ambiguous
+        // long before evaluation.
         std::set<std::string> names;
         for (std::unordered_map<std::string, std::string>::const_iterator it = config.constants.begin();
              it != config.constants.end(); ++it)

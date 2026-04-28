@@ -24,6 +24,8 @@ ExpressionError ConfigError(const std::string& message)
 
 ExtrapolationMode ParseExtrapolation(const std::string& table_name, const Json& table)
 {
+    // Tables default to clamp extrapolation so callers can omit the field when
+    // boundary values should simply stick to the nearest endpoint.
     if (!table.contains("extrapolation"))
     {
         return ExtrapolationMode::Clamp;
@@ -53,6 +55,8 @@ ExtrapolationMode ParseExtrapolation(const std::string& table_name, const Json& 
 
 std::vector<std::array<double, 2> > ParseTableData(const std::string& table_name, const Json& table)
 {
+    // The loader accepts raw JSON rows and normalizes them into the fixed
+    // numeric table representation expected by TableFunction.
     if (!table.contains("data"))
     {
         throw ConfigError("table '" + table_name + "': missing data");
@@ -191,6 +195,8 @@ void ParseExpressions(const Json& root, ExpressionRuntimeConfig& config)
         return;
     }
 
+    // The preferred representation is an array of named objects, but the
+    // loader still accepts the older object form for compatibility.
     if (root["expressions"].is_array())
     {
         for (std::size_t i = 0; i < root["expressions"].size(); ++i)
@@ -242,6 +248,8 @@ ExpressionRuntimeConfig LoadExpressionRuntimeConfigFromJsonString(const std::str
         throw ConfigError("root JSON value must be an object");
     }
 
+    // The loader normalizes each top-level section into one internal config
+    // object so later compilation stages can stay independent from JSON types.
     ExpressionRuntimeConfig config;
     ParseConstants(root, config);
     ParseTables(root, config);

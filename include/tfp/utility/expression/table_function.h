@@ -10,6 +10,8 @@ namespace tfp
 namespace utility
 {
 
+// ExtrapolationMode controls how TableFunction handles inputs outside the
+// minimum and maximum configured x coordinates.
 enum class ExtrapolationMode
 {
     Clamp,
@@ -20,13 +22,17 @@ enum class ExtrapolationMode
 class TableFunction
 {
 public:
-    // TableFunction is immutable after construction and may be shared across threads.
+    // TableFunction is immutable after construction and may be shared across
+    // threads. The constructor sorts rows by x and rejects duplicate or
+    // non-finite values before the table can be evaluated.
     TableFunction(std::string name, std::vector<std::array<double, 2> > data, ExtrapolationMode extrapolation);
 
     const std::string& Name() const noexcept;
     ExtrapolationMode Extrapolation() const noexcept;
     const std::vector<std::array<double, 2> >& Data() const noexcept;
 
+    // Evaluates the table at x using linear interpolation between the two
+    // surrounding rows and the configured extrapolation policy at the bounds.
     double Evaluate(double x) const;
 
 private:

@@ -13,6 +13,8 @@ namespace tfp
 namespace utility
 {
 
+// TableConfig describes one named one-dimensional lookup table loaded into the
+// runtime before expressions are compiled.
 struct TableConfig
 {
     std::string name;
@@ -20,6 +22,9 @@ struct TableConfig
     ExtrapolationMode extrapolation = ExtrapolationMode::Clamp;
 };
 
+// ExpressionConfig describes one compiled expression entry. wordable defines
+// the ordered runtime-variable list and therefore the positional argument order
+// used by ExpressionHandle::Evaluate().
 struct ExpressionConfig
 {
     std::string name;
@@ -27,6 +32,8 @@ struct ExpressionConfig
     std::vector<std::string> wordable;
 };
 
+// ExpressionRuntimeConfig is the normalized in-memory schema produced by the
+// loader before constants, tables, and expressions are compiled.
 struct ExpressionRuntimeConfig
 {
     std::unordered_map<std::string, std::string> constants;

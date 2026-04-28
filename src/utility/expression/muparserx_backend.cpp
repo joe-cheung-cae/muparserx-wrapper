@@ -51,6 +51,8 @@ void MuParserXBackend::DefineConstant(const std::string& name, double value)
 
 void MuParserXBackend::DefineVariables(const std::vector<std::string>& names)
 {
+    // muparserx variables are bound to mutable Value objects, so the storage
+    // vector must stay alive for the full lifetime of the compiled expression.
     variable_storage_.assign(names.size(), mup::Value(0.0));
     for (std::size_t i = 0; i < names.size(); ++i)
     {
@@ -109,6 +111,8 @@ std::vector<std::string> MuParserXBackend::GetReferencedVariables() const
     try
     {
         std::vector<std::string> variables;
+        // muparserx reports only variable symbols here, so constants and table
+        // callbacks can already be registered without appearing in this list.
         const mup::var_maptype& referenced = parser_.GetExprVar();
         for (mup::var_maptype::const_iterator it = referenced.begin(); it != referenced.end(); ++it)
         {
@@ -147,6 +151,8 @@ double EvaluateConstantExpression(const std::string& constant_name,
                                   const std::string& expression,
                                   const std::unordered_map<std::string, double>& constants)
 {
+    // Constant evaluation uses a fresh backend with only already-resolved
+    // constants so runtime variables and table functions are never in scope.
     MuParserXBackend backend;
     for (std::unordered_map<std::string, double>::const_iterator it = constants.begin(); it != constants.end(); ++it)
     {

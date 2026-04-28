@@ -30,12 +30,17 @@ std::unordered_map<std::string, double> ResolveConstants(
             const std::string& name = *it;
             try
             {
+                // A constant can be resolved as soon as every referenced symbol
+                // has already been resolved in an earlier pass.
                 resolved[name] = detail::EvaluateConstantExpression(name, raw_constants.at(name), resolved);
                 resolved_this_pass.push_back(name);
                 made_progress = true;
             }
             catch (const ExpressionError&)
             {
+                // Failures are deferred until the end of the pass so other
+                // constants that no longer have unresolved dependencies can
+                // still make progress.
             }
         }
 
@@ -46,6 +51,9 @@ std::unordered_map<std::string, double> ResolveConstants(
 
         if (!made_progress)
         {
+            // If an entire pass cannot resolve anything, the remaining names
+            // must contain either an unknown symbol reference or a dependency
+            // cycle between constants.
             throw ExpressionError(ExpressionErrorCode::ConstantError,
                                   "constants contain an unknown symbol or circular dependency near '" + *unresolved.begin() + "'");
         }

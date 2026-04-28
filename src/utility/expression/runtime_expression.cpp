@@ -19,6 +19,8 @@ RuntimeExpression::RuntimeExpression(
       expression_(config.expression),
       wordable_(config.wordable)
 {
+    // Constants and tables are registered before runtime variables so the
+    // parser sees the same symbol set during validation and later evaluation.
     for (std::unordered_map<std::string, double>::const_iterator it = constants.begin(); it != constants.end(); ++it)
     {
         backend_.DefineConstant(it->first, it->second);
@@ -30,6 +32,8 @@ RuntimeExpression::RuntimeExpression(
         backend_.DefineTable(it->second);
     }
 
+    // wordable defines the ordered runtime-variable contract exposed through
+    // ExpressionHandle::Evaluate(std::vector<double>) and EvaluateMap().
     for (std::size_t i = 0; i < wordable_.size(); ++i)
     {
         variable_indices_[wordable_[i]] = i;
@@ -50,6 +54,8 @@ RuntimeExpression::RuntimeExpression(
 
     try
     {
+        // A dry run forces parser-side validation while all symbols are bound,
+        // so malformed expressions fail during load instead of on first use.
         backend_.EvalAsDouble();
     }
     catch (const ExpressionError& error)
@@ -121,6 +127,8 @@ double RuntimeExpression::EvaluateUnary(double x)
 
 double RuntimeExpression::EvaluateMap(const std::unordered_map<std::string, double>& variables)
 {
+    // The map-based API preserves the same evaluation semantics as positional
+    // handles by translating names into the canonical wordable argument order.
     std::vector<double> args(wordable_.size());
     for (std::size_t i = 0; i < wordable_.size(); ++i)
     {

@@ -9,6 +9,9 @@ namespace tfp
 namespace utility
 {
 
+// ExpressionErrorCode identifies which phase of the runtime pipeline reported
+// the failure so callers can distinguish configuration problems from runtime
+// lookup, compile, or evaluation failures.
 enum class ExpressionErrorCode
 {
     ConfigError,
