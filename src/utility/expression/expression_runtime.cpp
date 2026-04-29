@@ -125,14 +125,19 @@ ExpressionRuntime::~ExpressionRuntime() = default;
 ExpressionRuntime::ExpressionRuntime(ExpressionRuntime&&) noexcept = default;
 ExpressionRuntime& ExpressionRuntime::operator=(ExpressionRuntime&&) noexcept = default;
 
+void ExpressionRuntime::LoadFromConfig(const ExpressionRuntimeConfig& config)
+{
+    impl_->Load(config);
+}
+
 void ExpressionRuntime::LoadFromJsonString(const std::string& json_text)
 {
-    impl_->Load(LoadExpressionRuntimeConfigFromJsonString(json_text));
+    LoadFromConfig(LoadExpressionRuntimeConfigFromJsonString(json_text));
 }
 
 void ExpressionRuntime::LoadFromJsonFile(const std::string& path)
 {
-    impl_->Load(LoadExpressionRuntimeConfigFromJsonFile(path));
+    LoadFromConfig(LoadExpressionRuntimeConfigFromJsonFile(path));
 }
 
 ExpressionHandle ExpressionRuntime::GetExpression(const std::string& name) const

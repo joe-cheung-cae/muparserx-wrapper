@@ -1,6 +1,7 @@
 #ifndef TFP_UTILITY_EXPRESSION_RUNTIME_H
 #define TFP_UTILITY_EXPRESSION_RUNTIME_H
 
+#include "tfp/utility/expression/expression_config.h"
 #include "tfp/utility/expression/expression_handle.h"
 
 #include <memory>
@@ -32,6 +33,10 @@ public:
     ExpressionRuntime(const ExpressionRuntime&) = delete;
     ExpressionRuntime& operator=(const ExpressionRuntime&) = delete;
 
+    // Loads constants, tables, and expressions from an in-memory normalized
+    // configuration object and replaces any previously compiled expressions
+    // owned by this runtime.
+    void LoadFromConfig(const ExpressionRuntimeConfig& config);
     // Loads constants, tables, and expressions from a JSON document string and
     // replaces any previously compiled expressions owned by this runtime.
     void LoadFromJsonString(const std::string& json_text);

@@ -25,6 +25,7 @@ compiled parser.
 ## Features
 
 - Loads constants from JSON.
+- Also supports programmatic loading from `ExpressionRuntimeConfig`.
 - Resolves constant expressions at load time.
 - Loads one-dimensional table functions from `[[x, y], ...]`.
 - Supports linear interpolation with `clamp`, `error`, and `linear`
@@ -255,6 +256,7 @@ tfp::utility::ExpressionRuntime runtime;
 
 runtime.LoadFromJsonString(json_text);
 runtime.LoadFromJsonFile("config.json");
+runtime.LoadFromConfig(config_object);
 
 auto unary = runtime.GetUnaryExpression("fx");
 double a = unary.Evaluate(1.5);
@@ -265,6 +267,7 @@ double b = handle.Evaluate(std::vector<double>{2.0, 3.0});
 double c = runtime.Evaluate("fx", {{"t", 1.5}});
 ```
 
+Use `LoadFromConfig()` when constructing the normalized runtime model in C++.
 Use `GetUnaryExpression()` for high-frequency one-argument expressions. Use
 `GetExpression()` for high-frequency multi-argument expressions. Use the map API
 for low-frequency or debug calls.

@@ -1,5 +1,6 @@
 #include "test_support.h"
 
+#include "tfp/utility/expression/expression_config.h"
 #include "tfp/utility/expression/expression_error.h"
 #include "tfp/utility/expression/expression_runtime.h"
 
@@ -8,8 +9,12 @@
 
 int main()
 {
+    using tfp::utility::ExpressionConfig;
     using tfp::utility::ExpressionError;
     using tfp::utility::ExpressionRuntime;
+    using tfp::utility::ExpressionRuntimeConfig;
+    using tfp::utility::ExtrapolationMode;
+    using tfp::utility::TableConfig;
 
     const char* config = R"json({
       "constants": {"rho0": "1000.0"},
@@ -32,6 +37,21 @@ int main()
     TFP_REQUIRE_NEAR(runtime.GetUnaryExpression("fx").Evaluate(1.5), 3000.0, 1e-12);
     TFP_REQUIRE_NEAR(runtime.GetExpression("sum_xy").Evaluate(std::vector<double>{2.0, 3.0}), 32.0, 1e-12);
 
+    ExpressionRuntimeConfig object_config;
+    object_config.constants["rho0"] = "1000.0";
+    object_config.tables.push_back(TableConfig{"wind",
+                                              std::vector<std::array<double, 2> >{{0.0, 0.0}, {1.0, 2.0}, {2.0, 4.0}},
+                                              ExtrapolationMode::Linear});
+    object_config.expressions.push_back(ExpressionConfig{"fx", "rho0 * wind(t)", std::vector<std::string>{"t"}});
+    object_config.expressions.push_back(ExpressionConfig{"sum_xy", "x + 10.0 * y", std::vector<std::string>{"x", "y"}});
+
+    ExpressionRuntime object_runtime;
+    object_runtime.LoadFromConfig(object_config);
+
+    TFP_REQUIRE_NEAR(object_runtime.Evaluate("fx", std::unordered_map<std::string, double>{{"t", 1.5}}), 3000.0, 1e-12);
+    TFP_REQUIRE_NEAR(object_runtime.GetUnaryExpression("fx").Evaluate(1.5), 3000.0, 1e-12);
+    TFP_REQUIRE_NEAR(object_runtime.GetExpression("sum_xy").Evaluate(std::vector<double>{2.0, 3.0}), 32.0, 1e-12);
+
     TFP_REQUIRE_THROWS(ExpressionError, runtime.GetUnaryExpression("sum_xy"));
     TFP_REQUIRE_THROWS(ExpressionError, runtime.GetExpression("sum_xy").Evaluate(std::vector<double>{2.0}));
     TFP_REQUIRE_THROWS(ExpressionError, runtime.Evaluate("fx", std::unordered_map<std::string, double>()));
@@ -49,6 +69,11 @@ int main()
       "constants": {"dup": "1.0"},
       "expressions": {"dup": {"expression": "1.0", "wordable": []}}
     })json"));
+
+    ExpressionRuntimeConfig invalid_config;
+    invalid_config.constants["dup"] = "1.0";
+    invalid_config.expressions.push_back(ExpressionConfig{"dup", "1.0", std::vector<std::string>()});
+    TFP_REQUIRE_THROWS(ExpressionError, ExpressionRuntime().LoadFromConfig(invalid_config));
 
     return 0;
 }
