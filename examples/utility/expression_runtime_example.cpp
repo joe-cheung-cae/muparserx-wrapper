@@ -10,8 +10,9 @@ int main()
       "constants": {
         "rho0": "1000.0"
       },
-      "tables": {
-        "wind": {
+      "tables": [
+        {
+          "name": "wind",
           "extrapolation": "clamp",
           "data": [
             [0.0, 0.0],
@@ -19,7 +20,7 @@ int main()
             [2.0, 4.0]
           ]
         }
-      },
+      ],
       "expressions": [
         {
           "name": "fx",

@@ -103,6 +103,20 @@ std::vector<std::array<double, 2> > ParseTableData(const std::string& table_name
     return rows;
 }
 
+TableConfig ParseTableObject(const std::string& table_name, const Json& table_json)
+{
+    if (!table_json.is_object())
+    {
+        throw ConfigError("table '" + table_name + "' must be an object");
+    }
+
+    TableConfig table;
+    table.name = table_name;
+    table.extrapolation = ParseExtrapolation(table.name, table_json);
+    table.data = ParseTableData(table.name, table_json);
+    return table;
+}
+
 void ParseConstants(const Json& root, ExpressionRuntimeConfig& config)
 {
     if (!root.contains("constants"))
@@ -130,23 +144,36 @@ void ParseTables(const Json& root, ExpressionRuntimeConfig& config)
     {
         return;
     }
+
+    if (root["tables"].is_array())
+    {
+        for (std::size_t i = 0; i < root["tables"].size(); ++i)
+        {
+            const Json& table_json = root["tables"][i];
+            if (!table_json.is_object())
+            {
+                throw ConfigError("tables[" + std::to_string(i) + "] must be an object");
+            }
+            if (!table_json.contains("name") || !table_json["name"].is_string())
+            {
+                throw ConfigError("tables[" + std::to_string(i) + "]: name must be a string");
+            }
+
+            config.tables.push_back(ParseTableObject(
+                table_json["name"].get<std::string>(),
+                table_json));
+        }
+        return;
+    }
+
     if (!root["tables"].is_object())
     {
-        throw ConfigError("tables must be an object");
+        throw ConfigError("tables must be an array or object");
     }
 
     for (Json::const_iterator it = root["tables"].begin(); it != root["tables"].end(); ++it)
     {
-        if (!it.value().is_object())
-        {
-            throw ConfigError("table '" + it.key() + "' must be an object");
-        }
-
-        TableConfig table;
-        table.name = it.key();
-        table.extrapolation = ParseExtrapolation(table.name, it.value());
-        table.data = ParseTableData(table.name, it.value());
-        config.tables.push_back(table);
+        config.tables.push_back(ParseTableObject(it.key(), it.value()));
     }
 }
 

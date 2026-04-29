@@ -174,8 +174,9 @@ Include the public API:
     "pi_local": "3.141592653589793",
     "mu0": "4.0 * pi_local * 1e-7"
   },
-  "tables": {
-    "wind": {
+  "tables": [
+    {
+      "name": "wind",
       "extrapolation": "clamp",
       "data": [
         [0.0, 0.0],
@@ -183,7 +184,7 @@ Include the public API:
         [2.0, 4.0]
       ]
     }
-  },
+  ],
   "expressions": [
     {
       "name": "fx",
@@ -216,6 +217,12 @@ variables or table functions. Unknown symbols and dependency cycles are errors.
 
 ### Tables
 
+`tables` is an array of table objects. Each table object has:
+
+- `name`: the runtime lookup name.
+- `extrapolation`: optional; one of `"clamp"`, `"error"`, or `"linear"`.
+- `data`: an array of `[x, y]` rows.
+
 Tables are one-dimensional functions using `std::vector<std::array<double, 2>>`
 internally. Each row is `[x, y]`.
 
@@ -227,6 +234,17 @@ Supported extrapolation modes:
 
 Table rows are sorted by `x` at load time. Duplicate `x` values and non-finite
 values are errors.
+
+For compatibility, the loader also accepts the older object form:
+
+```json
+"tables": {
+  "wind": {
+    "extrapolation": "clamp",
+    "data": [[0.0, 0.0], [1.0, 2.0]]
+  }
+}
+```
 
 ### Expressions
 

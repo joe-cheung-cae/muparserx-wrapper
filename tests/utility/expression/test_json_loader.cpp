@@ -10,11 +10,12 @@ int main()
 
     const char* valid_json = R"json({
       "constants": {"rho0": "1000.0"},
-      "tables": {
-        "wind": {
+      "tables": [
+        {
+          "name": "wind",
           "data": [[0.0, 0.0], [1.0, 2.0]]
         }
-      },
+      ],
       "expressions": [
         {"name": "fx", "expression": "rho0 * wind(t)", "wordable": ["t"]}
       ]
@@ -23,6 +24,39 @@ int main()
     ExpressionRuntime runtime;
     runtime.LoadFromJsonString(valid_json);
     TFP_REQUIRE_NEAR(runtime.GetUnaryExpression("fx").Evaluate(0.5), 1000.0, 1e-12);
+
+    ExpressionRuntime legacy_runtime;
+    legacy_runtime.LoadFromJsonString(R"json({
+      "tables": {
+        "wind": {
+          "data": [[0.0, 0.0], [1.0, 2.0]]
+        }
+      },
+      "expressions": [
+        {"name": "fx", "expression": "wind(t)", "wordable": ["t"]}
+      ]
+    })json");
+    TFP_REQUIRE_NEAR(legacy_runtime.GetUnaryExpression("fx").Evaluate(0.5), 1.0, 1e-12);
+
+    TFP_REQUIRE_THROWS(ExpressionError, ExpressionRuntime().LoadFromJsonString(R"json({
+      "tables": [{"data": [[0.0, 0.0]]}],
+      "expressions": {}
+    })json"));
+
+    TFP_REQUIRE_THROWS(ExpressionError, ExpressionRuntime().LoadFromJsonString(R"json({
+      "tables": [{"name": 123, "data": [[0.0, 0.0]]}],
+      "expressions": {}
+    })json"));
+
+    TFP_REQUIRE_THROWS(ExpressionError, ExpressionRuntime().LoadFromJsonString(R"json({
+      "tables": ["bad"],
+      "expressions": {}
+    })json"));
+
+    TFP_REQUIRE_THROWS(ExpressionError, ExpressionRuntime().LoadFromJsonString(R"json({
+      "tables": "bad",
+      "expressions": {}
+    })json"));
 
     TFP_REQUIRE_THROWS(ExpressionError, ExpressionRuntime().LoadFromJsonString(R"json({
       "tables": {"bad": {}},
