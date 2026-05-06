@@ -22,6 +22,15 @@ ExpressionError ConfigError(const std::string& message)
     return ExpressionError(ExpressionErrorCode::ConfigError, message);
 }
 
+void AddConstant(const std::string& name, const std::string& value, ExpressionRuntimeConfig& config)
+{
+    if (config.constants.find(name) != config.constants.end())
+    {
+        throw ConfigError("duplicate global symbol '" + name + "'");
+    }
+    config.constants[name] = value;
+}
+
 ExtrapolationMode ParseExtrapolation(const std::string& table_name, const Json& table)
 {
     // Tables default to clamp extrapolation so callers can omit the field when
@@ -134,7 +143,7 @@ void ParseConstants(const Json& root, ExpressionRuntimeConfig& config)
         {
             throw ConfigError("constant '" + it.key() + "' must be a string expression");
         }
-        config.constants[it.key()] = it.value().get<std::string>();
+        AddConstant(it.key(), it.value().get<std::string>(), config);
     }
 }
 
@@ -256,6 +265,67 @@ void ParseExpressions(const Json& root, ExpressionRuntimeConfig& config)
     }
 }
 
+void ParseFunctionDefinition(const Json& function_json, std::size_t index, ExpressionRuntimeConfig& config)
+{
+    if (!function_json.is_object())
+    {
+        throw ConfigError("functions[" + std::to_string(index) + "] must be an object");
+    }
+    if (!function_json.contains("name") || !function_json["name"].is_string())
+    {
+        throw ConfigError("functions[" + std::to_string(index) + "]: name must be a string");
+    }
+    if (!function_json.contains("function_type") || !function_json["function_type"].is_number_integer())
+    {
+        throw ConfigError("functions[" + std::to_string(index) + "]: function_type must be an integer");
+    }
+
+    const std::string name = function_json["name"].get<std::string>();
+    const int function_type = function_json["function_type"].get<int>();
+
+    if (function_type == 0)
+    {
+        if (!function_json.contains("value") || !function_json["value"].is_string())
+        {
+            throw ConfigError("function '" + name + "': value must be a string expression");
+        }
+        AddConstant(name, function_json["value"].get<std::string>(), config);
+        return;
+    }
+
+    if (function_type == 1)
+    {
+        config.tables.push_back(ParseTableObject(name, function_json));
+        return;
+    }
+
+    if (function_type == 2)
+    {
+        config.expressions.push_back(ParseExpressionObject(name, function_json));
+        return;
+    }
+
+    throw ConfigError("functions[" + std::to_string(index) + "]: unsupported function_type '" +
+                      std::to_string(function_type) + "'");
+}
+
+void ParseFunctions(const Json& root, ExpressionRuntimeConfig& config)
+{
+    if (!root.contains("functions"))
+    {
+        return;
+    }
+    if (!root["functions"].is_array())
+    {
+        throw ConfigError("functions must be an array");
+    }
+
+    for (std::size_t i = 0; i < root["functions"].size(); ++i)
+    {
+        ParseFunctionDefinition(root["functions"][i], i, config);
+    }
+}
+
 } // namespace
 
 ExpressionRuntimeConfig LoadExpressionRuntimeConfigFromJsonString(const std::string& json_text)
@@ -281,6 +351,7 @@ ExpressionRuntimeConfig LoadExpressionRuntimeConfigFromJsonString(const std::str
     ParseConstants(root, config);
     ParseTables(root, config);
     ParseExpressions(root, config);
+    ParseFunctions(root, config);
     return config;
 }
 

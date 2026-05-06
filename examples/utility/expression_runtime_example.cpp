@@ -7,41 +7,50 @@
 int main()
 {
     const std::string config = R"json({
-      "constants": {
-        "rho0": "1000.0"
-      },
-      "tables": [
+      "functions": [
+        {
+          "name": "rho0",
+          "function_type": 0,
+          "value": "1000.0"
+        },
+        {
+          "name": "scale",
+          "function_type": 0,
+          "value": "2.0 * rho0"
+        },
         {
           "name": "wind",
+          "function_type": 1,
           "extrapolation": "clamp",
           "data": [
             [0.0, 0.0],
             [1.0, 2.0],
             [2.0, 4.0]
           ]
-        }
-      ],
-      "expressions": [
+        },
         {
           "name": "fx",
-          "expression": "rho0 * wind(t)",
+          "function_type": 2,
+          "expression": "scale * wind(t)",
           "wordable": ["t"]
         },
         {
           "name": "dynamic_pressure",
+          "function_type": 2,
           "expression": "0.5 * rho0 * wind(t)^2",
           "wordable": ["t"]
         },
         {
           "name": "weighted_sum",
+          "function_type": 2,
           "expression": "x + 10.0 * y",
           "wordable": ["x", "y"]
         }
       ]
     })json";
 
-    tfp::utility::ExpressionRuntime runtime;
-    runtime.LoadFromJsonString(config);
+    tfp::utility::ExpressionRuntime runtime =
+        tfp::utility::ExpressionRuntime::CreateFromJsonString(config);
 
     const tfp::utility::UnaryExpressionHandle fx = runtime.GetUnaryExpression("fx");
     std::cout << "fx(t) using unary handle\n";

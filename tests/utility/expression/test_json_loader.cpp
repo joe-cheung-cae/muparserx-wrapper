@@ -38,6 +38,59 @@ int main()
     })json");
     TFP_REQUIRE_NEAR(legacy_runtime.GetUnaryExpression("fx").Evaluate(0.5), 1.0, 1e-12);
 
+    ExpressionRuntime factory_runtime;
+    factory_runtime.LoadFromJsonString(R"json({
+      "functions": [
+        {"name": "rho0", "function_type": 0, "value": "1000.0"},
+        {"name": "scale", "function_type": 0, "value": "2.0 * rho0"},
+        {
+          "name": "wind",
+          "function_type": 1,
+          "data": [[0.0, 0.0], [1.0, 2.0]]
+        },
+        {
+          "name": "fx",
+          "function_type": 2,
+          "expression": "scale * wind(t)",
+          "wordable": ["t"]
+        }
+      ]
+    })json");
+    TFP_REQUIRE_NEAR(factory_runtime.GetUnaryExpression("fx").Evaluate(0.5), 2000.0, 1e-12);
+
+    TFP_REQUIRE_THROWS(ExpressionError, ExpressionRuntime().LoadFromJsonString(R"json({
+      "functions": {}
+    })json"));
+
+    TFP_REQUIRE_THROWS(ExpressionError, ExpressionRuntime().LoadFromJsonString(R"json({
+      "functions": [123]
+    })json"));
+
+    TFP_REQUIRE_THROWS(ExpressionError, ExpressionRuntime().LoadFromJsonString(R"json({
+      "functions": [{"function_type": 0, "value": "1.0"}]
+    })json"));
+
+    TFP_REQUIRE_THROWS(ExpressionError, ExpressionRuntime().LoadFromJsonString(R"json({
+      "functions": [{"name": "rho0", "value": "1.0"}]
+    })json"));
+
+    TFP_REQUIRE_THROWS(ExpressionError, ExpressionRuntime().LoadFromJsonString(R"json({
+      "functions": [{"name": "rho0", "function_type": "0", "value": "1.0"}]
+    })json"));
+
+    TFP_REQUIRE_THROWS(ExpressionError, ExpressionRuntime().LoadFromJsonString(R"json({
+      "functions": [{"name": "rho0", "function_type": 99, "value": "1.0"}]
+    })json"));
+
+    TFP_REQUIRE_THROWS(ExpressionError, ExpressionRuntime().LoadFromJsonString(R"json({
+      "functions": [{"name": "rho0", "function_type": 0}]
+    })json"));
+
+    TFP_REQUIRE_THROWS(ExpressionError, ExpressionRuntime().LoadFromJsonString(R"json({
+      "constants": {"rho0": "1000.0"},
+      "functions": [{"name": "rho0", "function_type": 0, "value": "999.0"}]
+    })json"));
+
     TFP_REQUIRE_THROWS(ExpressionError, ExpressionRuntime().LoadFromJsonString(R"json({
       "tables": [{"data": [[0.0, 0.0]]}],
       "expressions": {}

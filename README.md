@@ -4,6 +4,10 @@
 muparserx. The wrapper consumes muparserx and nlohmann/json through
 `find_package()` and keeps both dependency APIs out of the public headers.
 
+The runtime supports both the legacy section-based JSON schema
+(`constants` / `tables` / `expressions`) and a factory-style `functions` schema
+with integral `function_type` values (`0` constant, `1` table, `2` expression-like).
+
 The runtime is designed for the common pattern:
 
 ```cpp
@@ -167,6 +171,61 @@ Include the public API:
 
 ## JSON Format
 
+### Factory-style `functions` schema
+
+```json
+{
+  "functions": [
+    {
+      "name": "rho0",
+      "function_type": 0,
+      "value": "1000.0"
+    },
+    {
+      "name": "scale",
+      "function_type": 0,
+      "value": "2.0 * rho0"
+    },
+    {
+      "name": "wind",
+      "function_type": 1,
+      "extrapolation": "clamp",
+      "data": [
+        [0.0, 0.0],
+        [1.0, 2.0],
+        [2.0, 4.0]
+      ]
+    },
+    {
+      "name": "fx",
+      "function_type": 2,
+      "expression": "scale * wind(t)",
+      "wordable": ["t"]
+    },
+    {
+      "name": "weighted_sum",
+      "function_type": 2,
+      "expression": "x + 10.0 * y",
+      "wordable": ["x", "y"]
+    }
+  ]
+}
+```
+
+`function_type` values are:
+
+- `0`: constant
+- `1`: table
+- `2`: expression-like
+
+Factory-style constants use `value`, tables use `data` plus optional
+`extrapolation`, and expression-like functions use `expression` plus
+`wordable`.
+
+The loader still supports the legacy section-based schema below.
+
+### Legacy section-based schema
+
 ```json
 {
   "constants": {
@@ -271,6 +330,10 @@ For compatibility, the loader also accepts the older object form:
 
 ```cpp
 tfp::utility::ExpressionRuntime runtime;
+
+auto from_json = tfp::utility::ExpressionRuntime::CreateFromJsonString(json_text);
+auto from_file = tfp::utility::ExpressionRuntime::CreateFromJsonFile("config.json");
+auto from_config = tfp::utility::ExpressionRuntime::CreateFromConfig(config_object);
 
 runtime.LoadFromJsonString(json_text);
 runtime.LoadFromJsonFile("config.json");

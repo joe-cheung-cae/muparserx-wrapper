@@ -33,6 +33,10 @@ public:
     ExpressionRuntime(const ExpressionRuntime&) = delete;
     ExpressionRuntime& operator=(const ExpressionRuntime&) = delete;
 
+    [[nodiscard]] static ExpressionRuntime CreateFromConfig(const ExpressionRuntimeConfig& config);
+    [[nodiscard]] static ExpressionRuntime CreateFromJsonString(const std::string& json_text);
+    [[nodiscard]] static ExpressionRuntime CreateFromJsonFile(const std::string& path);
+
     // Loads constants, tables, and expressions from an in-memory normalized
     // configuration object and replaces any previously compiled expressions
     // owned by this runtime.

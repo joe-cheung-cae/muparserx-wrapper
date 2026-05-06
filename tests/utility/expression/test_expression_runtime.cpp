@@ -37,6 +37,24 @@ int main()
     TFP_REQUIRE_NEAR(runtime.GetUnaryExpression("fx").Evaluate(1.5), 3000.0, 1e-12);
     TFP_REQUIRE_NEAR(runtime.GetExpression("sum_xy").Evaluate(std::vector<double>{2.0, 3.0}), 32.0, 1e-12);
 
+    ExpressionRuntime factory_runtime = ExpressionRuntime::CreateFromJsonString(R"json({
+      "functions": [
+        {"name": "rho0", "function_type": 0, "value": "1000.0"},
+        {
+          "name": "wind",
+          "function_type": 1,
+          "extrapolation": "linear",
+          "data": [[0.0, 0.0], [1.0, 2.0], [2.0, 4.0]]
+        },
+        {"name": "fx", "function_type": 2, "expression": "rho0 * wind(t)", "wordable": ["t"]},
+        {"name": "sum_xy", "function_type": 2, "expression": "x + 10.0 * y", "wordable": ["x", "y"]}
+      ]
+    })json");
+
+    TFP_REQUIRE_NEAR(factory_runtime.Evaluate("fx", std::unordered_map<std::string, double>{{"t", 1.5}}), 3000.0, 1e-12);
+    TFP_REQUIRE_NEAR(factory_runtime.GetUnaryExpression("fx").Evaluate(1.5), 3000.0, 1e-12);
+    TFP_REQUIRE_NEAR(factory_runtime.GetExpression("sum_xy").Evaluate(std::vector<double>{2.0, 3.0}), 32.0, 1e-12);
+
     ExpressionRuntimeConfig object_config;
     object_config.constants["rho0"] = "1000.0";
     object_config.tables.push_back(TableConfig{"wind",
@@ -51,6 +69,11 @@ int main()
     TFP_REQUIRE_NEAR(object_runtime.Evaluate("fx", std::unordered_map<std::string, double>{{"t", 1.5}}), 3000.0, 1e-12);
     TFP_REQUIRE_NEAR(object_runtime.GetUnaryExpression("fx").Evaluate(1.5), 3000.0, 1e-12);
     TFP_REQUIRE_NEAR(object_runtime.GetExpression("sum_xy").Evaluate(std::vector<double>{2.0, 3.0}), 32.0, 1e-12);
+
+    ExpressionRuntime object_factory_runtime = ExpressionRuntime::CreateFromConfig(object_config);
+    TFP_REQUIRE_NEAR(object_factory_runtime.Evaluate("fx", std::unordered_map<std::string, double>{{"t", 1.5}}), 3000.0, 1e-12);
+    TFP_REQUIRE_NEAR(object_factory_runtime.GetUnaryExpression("fx").Evaluate(1.5), 3000.0, 1e-12);
+    TFP_REQUIRE_NEAR(object_factory_runtime.GetExpression("sum_xy").Evaluate(std::vector<double>{2.0, 3.0}), 32.0, 1e-12);
 
     TFP_REQUIRE_THROWS(ExpressionError, runtime.GetUnaryExpression("sum_xy"));
     TFP_REQUIRE_THROWS(ExpressionError, runtime.GetExpression("sum_xy").Evaluate(std::vector<double>{2.0}));
