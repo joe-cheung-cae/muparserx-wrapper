@@ -17,8 +17,12 @@ namespace utility
 // runtime before expressions are compiled.
 struct TableConfig
 {
+    // Symbol name used when expressions call the table as a function.
     std::string name;
+    // Rows are [x, y] pairs. Construction validates finite values, sorts rows
+    // by x, and rejects duplicate x coordinates.
     std::vector<std::array<double, 2> > data;
+    // Boundary policy used when evaluating outside the configured x range.
     ExtrapolationMode extrapolation = ExtrapolationMode::Clamp;
 };
 
@@ -27,8 +31,13 @@ struct TableConfig
 // used by ExpressionHandle::Evaluate().
 struct ExpressionConfig
 {
+    // Unique expression symbol name used for lookup from ExpressionRuntime.
     std::string name;
+    // Parser expression text. It may refer to constants, tables, and the
+    // runtime variables listed in wordable.
     std::string expression;
+    // Ordered runtime-variable list. Names must be unique within the expression
+    // and every runtime variable referenced by expression must appear here.
     std::vector<std::string> wordable;
 };
 
@@ -36,8 +45,12 @@ struct ExpressionConfig
 // loader before constants, tables, and expressions are compiled.
 struct ExpressionRuntimeConfig
 {
+    // Named constant expressions. Values are resolved to double before tables
+    // and runtime expressions are compiled; unresolved/cyclic dependencies fail.
     std::unordered_map<std::string, std::string> constants;
+    // Table function definitions available to compiled expressions.
     std::vector<TableConfig> tables;
+    // Runtime expressions available by name after loading.
     std::vector<ExpressionConfig> expressions;
 };
 

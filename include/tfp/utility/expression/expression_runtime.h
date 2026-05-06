@@ -14,6 +14,7 @@ namespace utility
 {
 namespace detail
 {
+// Private implementation that owns compiled expressions and parser state.
 class ExpressionRuntimeImpl;
 }
 
@@ -25,16 +26,29 @@ public:
     // Evaluate mutates parser-bound variable storage. Use one runtime instance
     // per thread when evaluating expressions concurrently.
     ExpressionRuntime();
+    // Releases compiled expressions and parser resources owned by this runtime.
     ~ExpressionRuntime();
 
+    // Transfers ownership of compiled runtime state. Existing handles remain
+    // valid because they share compiled expressions independently.
     ExpressionRuntime(ExpressionRuntime&&) noexcept;
+    // Replaces this runtime with another runtime's compiled state.
     ExpressionRuntime& operator=(ExpressionRuntime&&) noexcept;
 
+    // Runtime state is unique because it owns mutable parser bindings.
     ExpressionRuntime(const ExpressionRuntime&) = delete;
+    // Copy assignment is disabled for the same ownership and thread-safety
+    // reasons as copy construction.
     ExpressionRuntime& operator=(const ExpressionRuntime&) = delete;
 
+    // Constructs a runtime and loads an in-memory config before returning it.
+    // Throws ExpressionError for the same failures as LoadFromConfig().
     [[nodiscard]] static ExpressionRuntime CreateFromConfig(const ExpressionRuntimeConfig& config);
+    // Constructs a runtime from JSON text. Throws ExpressionError when parsing,
+    // validation, or compilation fails.
     [[nodiscard]] static ExpressionRuntime CreateFromJsonString(const std::string& json_text);
+    // Constructs a runtime from a JSON file path. Throws ExpressionError when
+    // file loading, parsing, validation, or compilation fails.
     [[nodiscard]] static ExpressionRuntime CreateFromJsonFile(const std::string& path);
 
     // Loads constants, tables, and expressions from an in-memory normalized
@@ -61,6 +75,8 @@ public:
     // Evaluates an expression by variable name for convenience. This path is
     // useful for low-frequency or debugging use, while repeated evaluation is
     // better served by the typed handle APIs that avoid per-call name lookup.
+    // The variables map must contain every name in the expression's wordable
+    // list; extra map entries are ignored.
     double Evaluate(const std::string& name, const std::unordered_map<std::string, double>& variables) const;
 
 private:
