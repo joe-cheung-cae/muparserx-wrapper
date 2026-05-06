@@ -5,6 +5,7 @@
 #include "tfp/utility/expression/expression_handle.h"
 
 #include <memory>
+#include <nlohmann/json.hpp>
 #include <string>
 #include <unordered_map>
 
@@ -47,6 +48,9 @@ public:
     // Constructs a runtime from JSON text. Throws ExpressionError when parsing,
     // validation, or compilation fails.
     [[nodiscard]] static ExpressionRuntime CreateFromJsonString(const std::string& json_text);
+    // Constructs a runtime from a parsed JSON object. Throws ExpressionError
+    // when schema validation or compilation fails.
+    [[nodiscard]] static ExpressionRuntime CreateFromJsonObject(const nlohmann::json& json_object);
     // Constructs a runtime from a JSON file path. Throws ExpressionError when
     // file loading, parsing, validation, or compilation fails.
     [[nodiscard]] static ExpressionRuntime CreateFromJsonFile(const std::string& path);
@@ -58,6 +62,11 @@ public:
     // Loads constants, tables, and expressions from a JSON document string and
     // replaces any previously compiled expressions owned by this runtime.
     void LoadFromJsonString(const std::string& json_text);
+    // Loads constants, tables, and expressions from a parsed JSON object and
+    // replaces any previously compiled expressions owned by this runtime.
+    // Schema validation and JSON conversion failures are reported as
+    // ExpressionError.
+    void LoadFromJsonObject(const nlohmann::json& json_object);
     // Loads the same JSON model from disk before compiling it into runtime
     // state. File and JSON validation failures are reported as ExpressionError.
     void LoadFromJsonFile(const std::string& path);

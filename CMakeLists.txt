@@ -55,7 +55,6 @@ target_include_directories(tfp_expression
 target_link_libraries(tfp_expression
     PUBLIC
         ${muparserx_LIBRARIES}
-    PRIVATE
         nlohmann_json::nlohmann_json
 )
 

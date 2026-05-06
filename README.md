@@ -2,7 +2,8 @@
 
 `muparserx-wrapper` is a C++17 JSON-defined expression runtime built on top of
 muparserx. The wrapper consumes muparserx and nlohmann/json through
-`find_package()` and keeps both dependency APIs out of the public headers.
+`find_package()`. The public runtime API exposes `nlohmann::json` for callers
+that already have parsed JSON objects, while muparserx stays behind the wrapper.
 
 The runtime supports both the legacy section-based JSON schema
 (`constants` / `tables` / `expressions`) and a factory-style `functions` schema
@@ -29,7 +30,8 @@ compiled parser.
 ## Features
 
 - Loads constants from JSON.
-- Also supports programmatic loading from `ExpressionRuntimeConfig`.
+- Also supports programmatic loading from parsed `nlohmann::json` objects and
+  `ExpressionRuntimeConfig`.
 - Resolves constant expressions at load time.
 - Loads one-dimensional table functions from `[[x, y], ...]`.
 - Supports linear interpolation with `clamp`, `error`, and `linear`
@@ -39,7 +41,7 @@ compiled parser.
 - Provides fast unary and multi-argument expression handles.
 - Provides a map-based convenience API for low-frequency/debug usage.
 - Wraps backend errors in `tfp::utility::ExpressionError`.
-- Keeps `mup::*` and `nlohmann::json` out of public headers.
+- Keeps `mup::*` out of public headers.
 
 ## Repository Layout
 
@@ -332,10 +334,12 @@ For compatibility, the loader also accepts the older object form:
 tfp::utility::ExpressionRuntime runtime;
 
 auto from_json = tfp::utility::ExpressionRuntime::CreateFromJsonString(json_text);
+auto from_object = tfp::utility::ExpressionRuntime::CreateFromJsonObject(json_object);
 auto from_file = tfp::utility::ExpressionRuntime::CreateFromJsonFile("config.json");
 auto from_config = tfp::utility::ExpressionRuntime::CreateFromConfig(config_object);
 
 runtime.LoadFromJsonString(json_text);
+runtime.LoadFromJsonObject(json_object);
 runtime.LoadFromJsonFile("config.json");
 runtime.LoadFromConfig(config_object);
 
@@ -348,10 +352,11 @@ double b = handle.Evaluate(std::vector<double>{2.0, 3.0});
 double c = runtime.Evaluate("fx", {{"t", 1.5}});
 ```
 
-Use `LoadFromConfig()` when constructing the normalized runtime model in C++.
-Use `GetUnaryExpression()` for high-frequency one-argument expressions. Use
-`GetExpression()` for high-frequency multi-argument expressions. Use the map API
-for low-frequency or debug calls.
+Use `LoadFromJsonObject()` when your application already owns a parsed
+`nlohmann::json` object. Use `LoadFromConfig()` when constructing the normalized
+runtime model in C++. Use `GetUnaryExpression()` for high-frequency one-argument
+expressions. Use `GetExpression()` for high-frequency multi-argument
+expressions. Use the map API for low-frequency or debug calls.
 
 ## Error Handling
 
@@ -384,6 +389,7 @@ objects are immutable after construction and may be shared internally.
 `examples/utility/expression_runtime_example.cpp` demonstrates:
 
 - Loading a JSON config string.
+- Loading a parsed `nlohmann::json` object.
 - Evaluating a unary expression in a loop.
 - Evaluating a multi-argument expression by ordered arguments.
 - Evaluating through the map-based convenience API.

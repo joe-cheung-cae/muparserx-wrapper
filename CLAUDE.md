@@ -51,7 +51,7 @@ There is no dedicated lint or formatting target in the current CMake configurati
 
 ## Architecture overview
 
-`muparserx-wrapper` builds the `tfp_expression` library, a JSON-defined expression runtime layered over muparserx. Public headers live under `include/tfp/utility/expression/` and intentionally avoid exposing muparserx or nlohmann/json types.
+`muparserx-wrapper` builds the `tfp_expression` library, a JSON-defined expression runtime layered over muparserx. Public headers live under `include/tfp/utility/expression/` and intentionally avoid exposing muparserx types. `ExpressionRuntime` exposes `nlohmann::json` for parsed-object loading, so keep `nlohmann_json::nlohmann_json` as a public CMake dependency.
 
 The main public entry point is `tfp::utility::ExpressionRuntime`. It loads JSON from a string or file, then returns either `ExpressionHandle` for ordered multi-argument evaluation or `UnaryExpressionHandle` for high-frequency one-variable evaluation. The map-based `Evaluate()` API is a convenience path for low-frequency/debug use.
 

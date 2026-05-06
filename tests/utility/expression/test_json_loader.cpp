@@ -3,6 +3,8 @@
 #include "tfp/utility/expression/expression_error.h"
 #include "tfp/utility/expression/expression_runtime.h"
 
+#include <nlohmann/json.hpp>
+
 int main()
 {
     using tfp::utility::ExpressionError;
@@ -24,6 +26,31 @@ int main()
     ExpressionRuntime runtime;
     runtime.LoadFromJsonString(valid_json);
     TFP_REQUIRE_NEAR(runtime.GetUnaryExpression("fx").Evaluate(0.5), 1000.0, 1e-12);
+
+    const nlohmann::json valid_json_object = nlohmann::json::parse(valid_json);
+
+    ExpressionRuntime object_runtime;
+    object_runtime.LoadFromJsonObject(valid_json_object);
+    TFP_REQUIRE_NEAR(object_runtime.GetUnaryExpression("fx").Evaluate(0.5), 1000.0, 1e-12);
+
+    ExpressionRuntime object_factory_runtime = ExpressionRuntime::CreateFromJsonObject(valid_json_object);
+    TFP_REQUIRE_NEAR(object_factory_runtime.GetUnaryExpression("fx").Evaluate(0.5), 1000.0, 1e-12);
+
+    TFP_REQUIRE_THROWS(ExpressionError, ExpressionRuntime().LoadFromJsonObject(nlohmann::json::array()));
+
+    TFP_REQUIRE_THROWS(ExpressionError, ExpressionRuntime().LoadFromJsonObject(nlohmann::json{
+        {"constants", nlohmann::json::array()}
+    }));
+
+    TFP_REQUIRE_THROWS(ExpressionError, ExpressionRuntime().LoadFromJsonObject(nlohmann::json{
+        {"functions", nlohmann::json::array({
+            {
+                {"name", "bad"},
+                {"function_type", 9223372036854775807ull},
+                {"value", "1.0"}
+            }
+        })}
+    }));
 
     ExpressionRuntime legacy_runtime;
     legacy_runtime.LoadFromJsonString(R"json({

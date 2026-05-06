@@ -340,7 +340,12 @@ ExpressionRuntimeConfig LoadExpressionRuntimeConfigFromJsonString(const std::str
         throw ConfigError(std::string("invalid JSON: ") + error.what());
     }
 
-    if (!root.is_object())
+    return LoadExpressionRuntimeConfigFromJsonObject(root);
+}
+
+ExpressionRuntimeConfig LoadExpressionRuntimeConfigFromJsonObject(const nlohmann::json& json_object)
+{
+    if (!json_object.is_object())
     {
         throw ConfigError("root JSON value must be an object");
     }
@@ -348,10 +353,21 @@ ExpressionRuntimeConfig LoadExpressionRuntimeConfigFromJsonString(const std::str
     // The loader normalizes each top-level section into one internal config
     // object so later compilation stages can stay independent from JSON types.
     ExpressionRuntimeConfig config;
-    ParseConstants(root, config);
-    ParseTables(root, config);
-    ParseExpressions(root, config);
-    ParseFunctions(root, config);
+    try
+    {
+        ParseConstants(json_object, config);
+        ParseTables(json_object, config);
+        ParseExpressions(json_object, config);
+        ParseFunctions(json_object, config);
+    }
+    catch (const ExpressionError&)
+    {
+        throw;
+    }
+    catch (const nlohmann::json::exception& error)
+    {
+        throw ConfigError(std::string("invalid JSON config value: ") + error.what());
+    }
     return config;
 }
 

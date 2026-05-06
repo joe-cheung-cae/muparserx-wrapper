@@ -1,6 +1,7 @@
 #include "tfp/utility/expression/expression_runtime.h"
 
 #include <iostream>
+#include <nlohmann/json.hpp>
 #include <unordered_map>
 #include <vector>
 
@@ -67,6 +68,13 @@ int main()
         "dynamic_pressure",
         std::unordered_map<std::string, double>{{"t", 1.5}});
     std::cout << "dynamic_pressure(t=1.5) = " << dynamic_pressure << "\n";
+
+    const nlohmann::json config_object = nlohmann::json::parse(config);
+    tfp::utility::ExpressionRuntime object_runtime =
+        tfp::utility::ExpressionRuntime::CreateFromJsonObject(config_object);
+
+    std::cout << "fx(t=1.5) from parsed JSON object = "
+              << object_runtime.GetUnaryExpression("fx").Evaluate(1.5) << "\n";
 
     return 0;
 }

@@ -150,6 +150,13 @@ ExpressionRuntime ExpressionRuntime::CreateFromJsonString(const std::string& jso
     return runtime;
 }
 
+ExpressionRuntime ExpressionRuntime::CreateFromJsonObject(const nlohmann::json& json_object)
+{
+    ExpressionRuntime runtime;
+    runtime.LoadFromJsonObject(json_object);
+    return runtime;
+}
+
 ExpressionRuntime ExpressionRuntime::CreateFromJsonFile(const std::string& path)
 {
     ExpressionRuntime runtime;
@@ -165,6 +172,11 @@ void ExpressionRuntime::LoadFromConfig(const ExpressionRuntimeConfig& config)
 void ExpressionRuntime::LoadFromJsonString(const std::string& json_text)
 {
     LoadFromConfig(LoadExpressionRuntimeConfigFromJsonString(json_text));
+}
+
+void ExpressionRuntime::LoadFromJsonObject(const nlohmann::json& json_object)
+{
+    LoadFromConfig(LoadExpressionRuntimeConfigFromJsonObject(json_object));
 }
 
 void ExpressionRuntime::LoadFromJsonFile(const std::string& path)
