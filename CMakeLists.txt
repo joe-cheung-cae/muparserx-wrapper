@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.14)
-project(muparserx_wrapper VERSION 0.0.4 LANGUAGES CXX)
+project(muparserx_wrapper VERSION 0.0.5 LANGUAGES CXX)
 
 include(GNUInstallDirs)
 include(CMakePackageConfigHelpers)
