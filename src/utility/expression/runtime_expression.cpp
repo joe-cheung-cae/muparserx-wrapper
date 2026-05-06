@@ -51,18 +51,6 @@ RuntimeExpression::RuntimeExpression(
                                   "expression '" + name_ + "' references undeclared runtime variable '" + *it + "'");
         }
     }
-
-    try
-    {
-        // A dry run forces parser-side validation while all symbols are bound,
-        // so malformed expressions fail during load instead of on first use.
-        backend_.EvalAsDouble();
-    }
-    catch (const ExpressionError& error)
-    {
-        throw ExpressionError(ExpressionErrorCode::CompileError,
-                              "expression '" + name_ + "' failed to compile: " + error.what());
-    }
 }
 
 const std::string& RuntimeExpression::Name() const noexcept

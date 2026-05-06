@@ -98,6 +98,17 @@ private:
             {
                 throw ExpressionError(ExpressionErrorCode::ConfigError, "duplicate global symbol '" + it->name + "'");
             }
+
+            std::set<std::string> wordable_names;
+            for (std::vector<std::string>::const_iterator wordable = it->wordable.begin();
+                 wordable != it->wordable.end(); ++wordable)
+            {
+                if (!wordable_names.insert(*wordable).second)
+                {
+                    throw ExpressionError(ExpressionErrorCode::ConfigError,
+                                          "expression '" + it->name + "' has duplicate wordable variable '" + *wordable + "'");
+                }
+            }
         }
     }
 

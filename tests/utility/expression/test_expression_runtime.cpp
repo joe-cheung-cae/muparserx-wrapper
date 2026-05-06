@@ -70,10 +70,31 @@ int main()
       "expressions": {"dup": {"expression": "1.0", "wordable": []}}
     })json"));
 
+    ExpressionRuntime table_runtime;
+    table_runtime.LoadFromJsonString(R"json({
+      "tables": {
+        "wind": {
+          "extrapolation": "error",
+          "data": [[10.0, 1.0], [20.0, 2.0]]
+        }
+      },
+      "expressions": {
+        "wind_value": {"expression": "wind(t)", "wordable": ["t"]}
+      }
+    })json");
+    TFP_REQUIRE_NEAR(table_runtime.Evaluate("wind_value", std::unordered_map<std::string, double>{{"t", 15.0}}), 1.5, 1e-12);
+    TFP_REQUIRE_THROWS(ExpressionError,
+                       table_runtime.Evaluate("wind_value", std::unordered_map<std::string, double>{{"t", 0.0}}));
+
     ExpressionRuntimeConfig invalid_config;
     invalid_config.constants["dup"] = "1.0";
     invalid_config.expressions.push_back(ExpressionConfig{"dup", "1.0", std::vector<std::string>()});
     TFP_REQUIRE_THROWS(ExpressionError, ExpressionRuntime().LoadFromConfig(invalid_config));
+
+    ExpressionRuntimeConfig duplicate_wordable_config;
+    duplicate_wordable_config.expressions.push_back(
+        ExpressionConfig{"dup_wordable", "t", std::vector<std::string>{"t", "t"}});
+    TFP_REQUIRE_THROWS(ExpressionError, ExpressionRuntime().LoadFromConfig(duplicate_wordable_config));
 
     return 0;
 }
