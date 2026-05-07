@@ -171,6 +171,34 @@ Include the public API:
 #include "tfp/utility/expression/expression.h"
 ```
 
+## Single-header Usage
+
+A header-only snapshot is available for embedding the wrapper directly into another project:
+
+```cpp
+#include <tfp/utility/expression/expression_single_header.hpp>
+```
+
+Add `single_include/` to your include path. This mode does not link `tfp_expression`, but it still requires C++17, `nlohmann/json.hpp`, muparserx headers, and the muparserx library.
+
+```cmake
+find_package(muparserx REQUIRED CONFIG)
+find_package(nlohmann_json 3.11.0 REQUIRED CONFIG)
+
+add_executable(your_target main.cpp)
+target_compile_features(your_target PRIVATE cxx_std_17)
+target_include_directories(your_target PRIVATE
+  /path/to/muparserx-wrapper/single_include
+  ${muparserx_INCLUDE_DIRS}
+)
+target_link_libraries(your_target PRIVATE
+  ${muparserx_LIBRARIES}
+  nlohmann_json::nlohmann_json
+)
+```
+
+On Windows, the wrapper itself needs no `__declspec(dllexport)` or `__declspec(dllimport)` in single-header mode because it is compiled into the consuming target. Link muparserx according to your muparserx static or DLL installation, and define `NOMINMAX` in your application if your Windows headers require it.
+
 ## JSON Format
 
 ### Factory-style `functions` schema
