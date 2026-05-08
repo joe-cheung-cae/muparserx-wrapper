@@ -122,4 +122,15 @@ endif()
 if(TFP_EXPRESSION_BUILD_EXAMPLES)
     add_executable(expression_runtime_example examples/utility/expression_runtime_example.cpp)
     target_link_libraries(expression_runtime_example PRIVATE tfp_expression)
+
+    add_executable(expression_single_header_example examples/utility/expression_single_header_example.cpp)
+    target_compile_features(expression_single_header_example PRIVATE cxx_std_17)
+    target_include_directories(expression_single_header_example PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}/single_include
+        ${muparserx_INCLUDE_DIRS}
+    )
+    target_link_libraries(expression_single_header_example PRIVATE
+        ${muparserx_LIBRARIES}
+        nlohmann_json::nlohmann_json
+    )
 endif()

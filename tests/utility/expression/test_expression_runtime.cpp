@@ -36,6 +36,10 @@ int main()
     TFP_REQUIRE_NEAR(runtime.Evaluate("fx", std::unordered_map<std::string, double>{{"t", 1.5}}), 3000.0, 1e-12);
     TFP_REQUIRE_NEAR(runtime.GetUnaryExpression("fx").Evaluate(1.5), 3000.0, 1e-12);
     TFP_REQUIRE_NEAR(runtime.GetExpression("sum_xy").Evaluate(std::vector<double>{2.0, 3.0}), 32.0, 1e-12);
+    TFP_REQUIRE(runtime.GetArgumentNames("rho0").empty());
+    TFP_REQUIRE(runtime.GetArgumentNames("wind") == std::vector<std::string>{"x"});
+    TFP_REQUIRE(runtime.GetArgumentNames("fx") == std::vector<std::string>{"t"});
+    TFP_REQUIRE(runtime.GetArgumentNames("sum_xy") == std::vector<std::string>({"x", "y"}));
 
     ExpressionRuntime factory_runtime = ExpressionRuntime::CreateFromJsonString(R"json({
       "functions": [
@@ -54,6 +58,10 @@ int main()
     TFP_REQUIRE_NEAR(factory_runtime.Evaluate("fx", std::unordered_map<std::string, double>{{"t", 1.5}}), 3000.0, 1e-12);
     TFP_REQUIRE_NEAR(factory_runtime.GetUnaryExpression("fx").Evaluate(1.5), 3000.0, 1e-12);
     TFP_REQUIRE_NEAR(factory_runtime.GetExpression("sum_xy").Evaluate(std::vector<double>{2.0, 3.0}), 32.0, 1e-12);
+    TFP_REQUIRE(factory_runtime.GetArgumentNames("rho0").empty());
+    TFP_REQUIRE(factory_runtime.GetArgumentNames("wind") == std::vector<std::string>{"x"});
+    TFP_REQUIRE(factory_runtime.GetArgumentNames("fx") == std::vector<std::string>{"t"});
+    TFP_REQUIRE(factory_runtime.GetArgumentNames("sum_xy") == std::vector<std::string>({"x", "y"}));
 
     ExpressionRuntimeConfig object_config;
     object_config.constants["rho0"] = "1000.0";
@@ -69,16 +77,25 @@ int main()
     TFP_REQUIRE_NEAR(object_runtime.Evaluate("fx", std::unordered_map<std::string, double>{{"t", 1.5}}), 3000.0, 1e-12);
     TFP_REQUIRE_NEAR(object_runtime.GetUnaryExpression("fx").Evaluate(1.5), 3000.0, 1e-12);
     TFP_REQUIRE_NEAR(object_runtime.GetExpression("sum_xy").Evaluate(std::vector<double>{2.0, 3.0}), 32.0, 1e-12);
+    TFP_REQUIRE(object_runtime.GetArgumentNames("rho0").empty());
+    TFP_REQUIRE(object_runtime.GetArgumentNames("wind") == std::vector<std::string>{"x"});
+    TFP_REQUIRE(object_runtime.GetArgumentNames("fx") == std::vector<std::string>{"t"});
+    TFP_REQUIRE(object_runtime.GetArgumentNames("sum_xy") == std::vector<std::string>({"x", "y"}));
 
     ExpressionRuntime object_factory_runtime = ExpressionRuntime::CreateFromConfig(object_config);
     TFP_REQUIRE_NEAR(object_factory_runtime.Evaluate("fx", std::unordered_map<std::string, double>{{"t", 1.5}}), 3000.0, 1e-12);
     TFP_REQUIRE_NEAR(object_factory_runtime.GetUnaryExpression("fx").Evaluate(1.5), 3000.0, 1e-12);
     TFP_REQUIRE_NEAR(object_factory_runtime.GetExpression("sum_xy").Evaluate(std::vector<double>{2.0, 3.0}), 32.0, 1e-12);
+    TFP_REQUIRE(object_factory_runtime.GetArgumentNames("rho0").empty());
+    TFP_REQUIRE(object_factory_runtime.GetArgumentNames("wind") == std::vector<std::string>{"x"});
+    TFP_REQUIRE(object_factory_runtime.GetArgumentNames("fx") == std::vector<std::string>{"t"});
+    TFP_REQUIRE(object_factory_runtime.GetArgumentNames("sum_xy") == std::vector<std::string>({"x", "y"}));
 
     TFP_REQUIRE_THROWS(ExpressionError, runtime.GetUnaryExpression("sum_xy"));
     TFP_REQUIRE_THROWS(ExpressionError, runtime.GetExpression("sum_xy").Evaluate(std::vector<double>{2.0}));
     TFP_REQUIRE_THROWS(ExpressionError, runtime.Evaluate("fx", std::unordered_map<std::string, double>()));
     TFP_REQUIRE_THROWS(ExpressionError, runtime.GetExpression("missing"));
+    TFP_REQUIRE_THROWS(ExpressionError, runtime.GetArgumentNames("missing"));
 
     TFP_REQUIRE_THROWS(ExpressionError, ExpressionRuntime().LoadFromJsonString(R"json({
       "expressions": {"bad": {"expression": "t + z", "wordable": ["t"]}}

@@ -81,6 +81,12 @@ public:
     // treated as an invalid argument error rather than a compile-time error.
     UnaryExpressionHandle GetUnaryExpression(const std::string& name) const;
 
+    // Returns the ordered runtime argument names for a named item loaded into
+    // this runtime. Constants return an empty list, tables return {"x"}, and
+    // expressions return their declared wordable order. Throws ExpressionError
+    // if the name does not exist.
+    std::vector<std::string> GetArgumentNames(const std::string& name) const;
+
     // Evaluates an expression by variable name for convenience. This path is
     // useful for low-frequency or debugging use, while repeated evaluation is
     // better served by the typed handle APIs that avoid per-call name lookup.

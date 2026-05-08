@@ -1,4 +1,4 @@
-#include "tfp/utility/expression/expression_runtime.h"
+#include <tfp/utility/expression/expression_single_header.hpp>
 
 #include <iostream>
 #include <nlohmann/json.hpp>
@@ -54,7 +54,7 @@ int main()
         tfp::utility::ExpressionRuntime::CreateFromJsonString(config);
 
     const tfp::utility::UnaryExpressionHandle fx = runtime.GetUnaryExpression("fx");
-    std::cout << "fx(t) using unary handle\n";
+    std::cout << "fx(t) using single-header unary handle\n";
     for (double t = 0.0; t <= 2.0; t += 0.5)
     {
         std::cout << "t = " << t << ", fx(t) = " << fx.Evaluate(t) << "\n";
@@ -64,18 +64,10 @@ int main()
     const double weighted_value = weighted_sum.Evaluate(std::vector<double>{2.0, 3.0});
     std::cout << "\nweighted_sum(x=2, y=3) = " << weighted_value << "\n";
 
-    const std::vector<std::string> dynamic_pressure_args = runtime.GetArgumentNames("dynamic_pressure");
-    if (dynamic_pressure_args.size() == 1)
-    {
-        const double dynamic_pressure = runtime.Evaluate(
-            "dynamic_pressure",
-            std::unordered_map<std::string, double>{{dynamic_pressure_args[0], 1.5}});
-        std::cout << "dynamic_pressure(" << dynamic_pressure_args[0] << "=1.5) = "
-                  << dynamic_pressure << "\n";
-    }
-
-    std::cout << "wind argument name = " << runtime.GetArgumentNames("wind").front() << "\n";
-    std::cout << "rho0 argument count = " << runtime.GetArgumentNames("rho0").size() << "\n";
+    const double dynamic_pressure = runtime.Evaluate(
+        "dynamic_pressure",
+        std::unordered_map<std::string, double>{{"t", 1.5}});
+    std::cout << "dynamic_pressure(t=1.5) = " << dynamic_pressure << "\n";
 
     const nlohmann::json config_object = nlohmann::json::parse(config);
     tfp::utility::ExpressionRuntime object_runtime =

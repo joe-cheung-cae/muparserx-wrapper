@@ -22,6 +22,21 @@ for (int i = 0; i < n; ++i)
 }
 ```
 
+If the function category is only known at runtime, use `GetArgumentNames()` to
+inspect the callable shape uniformly before building the variable map:
+
+```cpp
+const std::vector<std::string> args = runtime.GetArgumentNames("dynamic_pressure");
+if (args.empty())
+{
+    double value = runtime.Evaluate("rho0", {});
+}
+else if (args.size() == 1)
+{
+    double value = runtime.Evaluate("dynamic_pressure", {{args[0], 1.5}});
+}
+```
+
 JSON parsing, constant resolution, table validation/sorting, expression
 compilation, variable registration, and table callback registration happen at
 load time. Evaluation only updates already-bound variable slots and calls the
@@ -39,6 +54,7 @@ compiled parser.
 - Loads named expressions with ordered runtime variables (`wordable`).
 - Allows expressions to call table functions.
 - Provides fast unary and multi-argument expression handles.
+- Exposes ordered runtime argument names for constants, tables, and expressions.
 - Provides a map-based convenience API for low-frequency/debug usage.
 - Wraps backend errors in `tfp::utility::ExpressionError`.
 - Keeps `mup::*` out of public headers.
@@ -129,10 +145,11 @@ Run a single test:
 ctest --test-dir build -R '^test_expression_runtime$' --output-on-failure
 ```
 
-Run the example:
+Run the examples:
 
 ```bash
 ./build/expression_runtime_example
+./build/expression_single_header_example
 ```
 
 ## CMake Integration
@@ -173,7 +190,7 @@ Include the public API:
 
 ## Single-header Usage
 
-A header-only snapshot is available for embedding the wrapper directly into another project:
+A header-only snapshot is available for embedding the wrapper directly into another project, and `examples/utility/expression_single_header_example.cpp` shows the in-repo usage pattern:
 
 ```cpp
 #include <tfp/utility/expression/expression_single_header.hpp>
@@ -253,6 +270,13 @@ Factory-style constants use `value`, tables use `data` plus optional
 `wordable`.
 
 The loader still supports the legacy section-based schema below.
+
+At runtime, the public API treats these categories uniformly when querying
+argument names:
+
+- constants -> `GetArgumentNames(name)` returns `{}`
+- tables -> returns `{"x"}`
+- expressions -> returns the declared `wordable` order
 
 ### Legacy section-based schema
 

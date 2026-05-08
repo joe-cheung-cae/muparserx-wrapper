@@ -32,18 +32,28 @@ public:
         std::unordered_map<std::string, double> constants = ResolveConstants(config.constants);
 
         std::unordered_map<std::string, std::shared_ptr<const TableFunction> > tables;
+        std::unordered_map<std::string, std::vector<std::string> > argument_names;
         for (std::vector<TableConfig>::const_iterator it = config.tables.begin(); it != config.tables.end(); ++it)
         {
             tables[it->name] = std::make_shared<TableFunction>(it->name, it->data, it->extrapolation);
+            argument_names[it->name] = std::vector<std::string>{"x"};
         }
 
         std::unordered_map<std::string, std::shared_ptr<RuntimeExpression> > expressions;
         for (std::vector<ExpressionConfig>::const_iterator it = config.expressions.begin(); it != config.expressions.end(); ++it)
         {
             expressions[it->name] = CompileRuntimeExpression(*it, constants, tables);
+            argument_names[it->name] = it->wordable;
+        }
+
+        for (std::unordered_map<std::string, std::string>::const_iterator it = config.constants.begin();
+             it != config.constants.end(); ++it)
+        {
+            argument_names[it->first] = std::vector<std::string>();
         }
 
         expressions_ = std::move(expressions);
+        argument_names_ = std::move(argument_names);
     }
 
     ExpressionHandle GetExpression(const std::string& name) const
@@ -63,6 +73,11 @@ public:
                                   "expression '" + name + "' is not unary");
         }
         return UnaryExpressionHandle(expression);
+    }
+
+    std::vector<std::string> GetArgumentNames(const std::string& name) const
+    {
+        return FindArgumentNames(name);
     }
 
     double Evaluate(const std::string& name, const std::unordered_map<std::string, double>& variables) const
@@ -122,7 +137,18 @@ private:
         return it->second;
     }
 
+    std::vector<std::string> FindArgumentNames(const std::string& name) const
+    {
+        std::unordered_map<std::string, std::vector<std::string> >::const_iterator it = argument_names_.find(name);
+        if (it == argument_names_.end())
+        {
+            throw ExpressionError(ExpressionErrorCode::NotFound, "item '" + name + "' does not exist");
+        }
+        return it->second;
+    }
+
     std::unordered_map<std::string, std::shared_ptr<RuntimeExpression> > expressions_;
+    std::unordered_map<std::string, std::vector<std::string> > argument_names_;
 };
 
 } // namespace detail
@@ -192,6 +218,11 @@ ExpressionHandle ExpressionRuntime::GetExpression(const std::string& name) const
 UnaryExpressionHandle ExpressionRuntime::GetUnaryExpression(const std::string& name) const
 {
     return impl_->GetUnaryExpression(name);
+}
+
+std::vector<std::string> ExpressionRuntime::GetArgumentNames(const std::string& name) const
+{
+    return impl_->GetArgumentNames(name);
 }
 
 double ExpressionRuntime::Evaluate(const std::string& name, const std::unordered_map<std::string, double>& variables) const
