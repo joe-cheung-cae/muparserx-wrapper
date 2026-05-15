@@ -2,7 +2,6 @@
 
 #include <iostream>
 #include <nlohmann/json.hpp>
-#include <unordered_map>
 #include <vector>
 
 int main()
@@ -27,6 +26,15 @@ int main()
             [0.0, 0.0],
             [1.0, 2.0],
             [2.0, 4.0]
+          ]
+        },
+        {
+          "name": "magnetic_field",
+          "function_type": 1,
+          "extrapolation": "clamp",
+          "data": [
+            [0.0, 0.0],
+            [1.0, 10.0]
           ]
         },
         {
@@ -64,15 +72,14 @@ int main()
     const double weighted_value = weighted_sum.Evaluate(std::vector<double>{2.0, 3.0});
     std::cout << "\nweighted_sum(x=2, y=3) = " << weighted_value << "\n";
 
-    const std::vector<std::string> dynamic_pressure_args = runtime.GetArgumentNames("dynamic_pressure");
-    if (dynamic_pressure_args.size() == 1)
-    {
-        const double dynamic_pressure = runtime.Evaluate(
-            "dynamic_pressure",
-            std::unordered_map<std::string, double>{{dynamic_pressure_args[0], 1.5}});
-        std::cout << "dynamic_pressure(" << dynamic_pressure_args[0] << "=1.5) = "
-                  << dynamic_pressure << "\n";
-    }
+    const double dynamic_pressure = runtime.EvaluateUnary("dynamic_pressure", 1.5);
+    std::cout << "dynamic_pressure(t=1.5) = " << dynamic_pressure << "\n";
+
+    const double magnetic_field = runtime.EvaluateUnary("magnetic_field", 0.5);
+    std::cout << "magnetic_field(time=0.5) = " << magnetic_field << "\n";
+
+    const double density = runtime.EvaluateUnary("rho0", 123.0);
+    std::cout << "rho0 through EvaluateUnary = " << density << "\n";
 
     std::cout << "wind argument name = " << runtime.GetArgumentNames("wind").front() << "\n";
     std::cout << "rho0 argument count = " << runtime.GetArgumentNames("rho0").size() << "\n";

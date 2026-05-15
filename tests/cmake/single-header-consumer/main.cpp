@@ -59,11 +59,15 @@ int main()
     ExpressionRuntime runtime = ExpressionRuntime::CreateFromJsonString(json_text);
     Require(NearlyEqual(runtime.GetUnaryExpression("fx").Evaluate(1.5), 6000.0, 1e-12));
     Require(NearlyEqual(runtime.Evaluate("fx", std::unordered_map<std::string, double>{{"t", 1.5}}), 6000.0, 1e-12));
+    Require(NearlyEqual(runtime.EvaluateUnary("scale", 123.0), 2000.0, 1e-12));
+    Require(NearlyEqual(runtime.EvaluateUnary("wind", 1.5), 3.0, 1e-12));
+    Require(NearlyEqual(runtime.EvaluateUnary("fx", 1.5), 6000.0, 1e-12));
     Require(NearlyEqual(runtime.GetExpression("sum_xy").Evaluate(std::vector<double>{2.0, 3.0}), 32.0, 1e-12));
 
     const nlohmann::json json_object = nlohmann::json::parse(json_text);
     ExpressionRuntime object_runtime = ExpressionRuntime::CreateFromJsonObject(json_object);
     Require(NearlyEqual(object_runtime.GetUnaryExpression("fx").Evaluate(-1.0), -4000.0, 1e-12));
+    Require(NearlyEqual(object_runtime.EvaluateUnary("wind", -1.0), -2.0, 1e-12));
 
     TouchSingleHeaderSymbol();
     return 0;

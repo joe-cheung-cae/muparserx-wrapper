@@ -8,10 +8,34 @@
 #include <unordered_map>
 #include <vector>
 
+namespace
+{
+
+void RequireExpressionError(const std::function<void()>& function,
+                            tfp::utility::ExpressionErrorCode expected_code,
+                            const std::string& expected_message)
+{
+    try
+    {
+        function();
+    }
+    catch (const tfp::utility::ExpressionError& error)
+    {
+        TFP_REQUIRE(error.Code() == expected_code);
+        TFP_REQUIRE(std::string(error.what()).find(expected_message) != std::string::npos);
+        return;
+    }
+
+    TFP_REQUIRE(false);
+}
+
+} // namespace
+
 int main()
 {
     using tfp::utility::ExpressionConfig;
     using tfp::utility::ExpressionError;
+    using tfp::utility::ExpressionErrorCode;
     using tfp::utility::ExpressionRuntime;
     using tfp::utility::ExpressionRuntimeConfig;
     using tfp::utility::ExtrapolationMode;
@@ -128,16 +152,18 @@ int main()
                      0.05,
                      1e-12);
     TFP_REQUIRE_NEAR(constant_item_runtime.EvaluateUnary("magnetic_field", 123.0), 0.05, 1e-12);
-    TFP_REQUIRE_THROWS_MESSAGE(ExpressionError,
-                               constant_item_runtime.Evaluate("magnetic_field",
-                                                              std::unordered_map<std::string, double>{{"x", 1.0}}),
-                               "constant 'magnetic_field' expects no variables");
+    RequireExpressionError(
+        [&]() {
+            constant_item_runtime.Evaluate("magnetic_field", std::unordered_map<std::string, double>{{"x", 1.0}});
+        },
+        ExpressionErrorCode::InvalidArgument,
+        "constant 'magnetic_field' expects no variables");
 
     ExpressionRuntimeConfig table_item_config;
     table_item_config.tables.push_back(TableConfig{
         "magnetic_field",
         std::vector<std::array<double, 2> >{{0.0, 0.0}, {1.0, 10.0}},
-        ExtrapolationMode::Linear});
+        ExtrapolationMode::Clamp});
     ExpressionRuntime table_item_runtime = ExpressionRuntime::CreateFromConfig(table_item_config);
     TFP_REQUIRE(table_item_runtime.GetArgumentNames("magnetic_field") == std::vector<std::string>{"x"});
     TFP_REQUIRE_NEAR(table_item_runtime.Evaluate("magnetic_field",
@@ -149,10 +175,10 @@ int main()
                      5.0,
                      1e-12);
     TFP_REQUIRE_NEAR(table_item_runtime.EvaluateUnary("magnetic_field", 0.5), 5.0, 1e-12);
-    TFP_REQUIRE_THROWS_MESSAGE(ExpressionError,
-                               table_item_runtime.Evaluate("magnetic_field",
-                                                           std::unordered_map<std::string, double>()),
-                               "table 'magnetic_field' requires variable 'x'");
+    RequireExpressionError(
+        [&]() { table_item_runtime.Evaluate("magnetic_field", std::unordered_map<std::string, double>()); },
+        ExpressionErrorCode::InvalidArgument,
+        "table 'magnetic_field' requires variable 'x'");
 
     ExpressionRuntimeConfig expression_item_config;
     expression_item_config.expressions.push_back(
@@ -166,7 +192,17 @@ int main()
     TFP_REQUIRE_NEAR(expression_item_runtime.EvaluateUnary("magnetic_field", 3.0), 6.0, 1e-12);
 
     TFP_REQUIRE_THROWS(ExpressionError, runtime.GetUnaryExpression("sum_xy"));
-    TFP_REQUIRE_THROWS_MESSAGE(ExpressionError, runtime.EvaluateUnary("sum_xy", 1.0), "expression 'sum_xy' is not unary");
+    ExpressionRuntimeConfig non_unary_config;
+    non_unary_config.expressions.push_back(ExpressionConfig{"field", "x + y", std::vector<std::string>{"x", "y"}});
+    ExpressionRuntime non_unary_runtime = ExpressionRuntime::CreateFromConfig(non_unary_config);
+    TFP_REQUIRE_NEAR(non_unary_runtime.Evaluate("field",
+                                                std::unordered_map<std::string, double>{{"x", 1.0}, {"y", 2.0}}),
+                     3.0,
+                     1e-12);
+    RequireExpressionError(
+        [&]() { non_unary_runtime.EvaluateUnary("field", 1.0); },
+        ExpressionErrorCode::InvalidArgument,
+        "expression 'field' is not unary");
     TFP_REQUIRE_THROWS(ExpressionError, runtime.GetExpression("sum_xy").Evaluate(std::vector<double>{2.0}));
     TFP_REQUIRE_THROWS(ExpressionError, runtime.Evaluate("fx", std::unordered_map<std::string, double>()));
     TFP_REQUIRE_THROWS_MESSAGE(ExpressionError,
@@ -180,12 +216,14 @@ int main()
                                "table 'wind' requires variable 'x'");
     TFP_REQUIRE_THROWS(ExpressionError, runtime.GetExpression("missing"));
     TFP_REQUIRE_THROWS(ExpressionError, runtime.GetArgumentNames("missing"));
-    TFP_REQUIRE_THROWS_MESSAGE(ExpressionError,
-                               runtime.Evaluate("unknown", std::unordered_map<std::string, double>()),
-                               "runtime item 'unknown' does not exist");
-    TFP_REQUIRE_THROWS_MESSAGE(ExpressionError,
-                               runtime.EvaluateUnary("unknown", 0.0),
-                               "runtime item 'unknown' does not exist");
+    RequireExpressionError(
+        [&]() { runtime.Evaluate("unknown", std::unordered_map<std::string, double>()); },
+        ExpressionErrorCode::NotFound,
+        "runtime item 'unknown' does not exist");
+    RequireExpressionError(
+        [&]() { runtime.EvaluateUnary("unknown", 0.0); },
+        ExpressionErrorCode::NotFound,
+        "runtime item 'unknown' does not exist");
 
     TFP_REQUIRE_THROWS(ExpressionError, ExpressionRuntime().LoadFromJsonString(R"json({
       "expressions": {"bad": {"expression": "t + z", "wordable": ["t"]}}

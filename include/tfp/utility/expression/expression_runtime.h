@@ -87,13 +87,14 @@ public:
     // if the name does not exist.
     std::vector<std::string> GetArgumentNames(const std::string& name) const;
 
-    // Evaluates a named runtime item by variable name for convenience.
-    // Expressions use their declared wordable variables, tables use "x" (or a
-    // single supplied variable value), and constants expect no variables.
+    // Evaluates a loaded runtime item by name. Expressions are evaluated with
+    // the supplied variable map, tables use variable "x" or the single supplied
+    // variable value, and constants require an empty variable map.
     double Evaluate(const std::string& name, const std::unordered_map<std::string, double>& variables) const;
 
-    // Evaluates a named runtime item as a one-dimensional function. Constants
-    // ignore x, tables evaluate at x, and expressions must be unary.
+    // Evaluates a loaded one-dimensional runtime item by name. Constants ignore
+    // x, tables evaluate at x, and expressions must declare exactly one runtime
+    // variable.
     double EvaluateUnary(const std::string& name, double x) const;
 
 private:

@@ -9,7 +9,7 @@ The runtime supports both the legacy section-based JSON schema
 (`constants` / `tables` / `expressions`) and a factory-style `functions` schema
 with integral `function_type` values (`0` constant, `1` table, `2` expression-like).
 
-The runtime is designed for the common pattern:
+The runtime is designed for the common expression pattern:
 
 ```cpp
 tfp::utility::ExpressionRuntime runtime;
@@ -22,19 +22,19 @@ for (int i = 0; i < n; ++i)
 }
 ```
 
-If the function category is only known at runtime, use `GetArgumentNames()` to
-inspect the callable shape uniformly before building the variable map:
+If a one-dimensional runtime item may be configured as a constant, table, or
+expression, call it through the unified unary interface:
 
 ```cpp
-const std::vector<std::string> args = runtime.GetArgumentNames("dynamic_pressure");
-if (args.empty())
-{
-    double value = runtime.Evaluate("rho0", {});
-}
-else if (args.size() == 1)
-{
-    double value = runtime.Evaluate("dynamic_pressure", {{args[0], 1.5}});
-}
+double scale = runtime.EvaluateUnary("magnetic_field", time);
+```
+
+`EvaluateUnary()` ignores `time` for constants, evaluates tables at `time`, and
+requires expressions to declare exactly one runtime variable. Use
+`GetArgumentNames()` when callers need to inspect the loaded shape explicitly:
+
+```cpp
+const std::vector<std::string> args = runtime.GetArgumentNames("magnetic_field");
 ```
 
 JSON parsing, constant resolution, table validation/sorting, expression
@@ -55,6 +55,8 @@ compiled parser.
 - Allows expressions to call table functions.
 - Provides fast unary and multi-argument expression handles.
 - Exposes ordered runtime argument names for constants, tables, and expressions.
+- Evaluates constants, tables, and expressions through a unified runtime-item
+  API.
 - Provides a map-based convenience API for low-frequency/debug usage.
 - Wraps backend errors in `tfp::utility::ExpressionError`.
 - Keeps `mup::*` out of public headers.
@@ -89,6 +91,7 @@ tests/utility/expression/
 
 examples/utility/
   expression_runtime_example.cpp
+  expression_single_header_example.cpp
 ```
 
 ## Dependencies
@@ -278,6 +281,15 @@ argument names:
 - tables -> returns `{"x"}`
 - expressions -> returns the declared `wordable` order
 
+The runtime evaluation APIs also support these categories uniformly:
+
+- `Evaluate(name, variables)` evaluates expressions with the supplied variable
+  map, tables with variable `"x"` or a single supplied variable value, and
+  constants with an empty variable map.
+- `EvaluateUnary(name, x)` evaluates one-dimensional runtime items directly:
+  constants ignore `x`, tables evaluate at `x`, and expressions must declare
+  exactly one runtime variable.
+
 ### Legacy section-based schema
 
 ```json
@@ -402,13 +414,16 @@ auto handle = runtime.GetExpression("weighted_sum");
 double b = handle.Evaluate(std::vector<double>{2.0, 3.0});
 
 double c = runtime.Evaluate("fx", {{"t", 1.5}});
+double d = runtime.EvaluateUnary("magnetic_field", time);
 ```
 
 Use `LoadFromJsonObject()` when your application already owns a parsed
 `nlohmann::json` object. Use `LoadFromConfig()` when constructing the normalized
 runtime model in C++. Use `GetUnaryExpression()` for high-frequency one-argument
 expressions. Use `GetExpression()` for high-frequency multi-argument
-expressions. Use the map API for low-frequency or debug calls.
+expressions. Use `EvaluateUnary()` when solver code needs one call site that
+works whether a loaded item is a constant, table, or unary expression. Use the
+map API for low-frequency or debug calls.
 
 ## Error Handling
 

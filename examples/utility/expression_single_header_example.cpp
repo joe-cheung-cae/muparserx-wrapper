@@ -30,6 +30,15 @@ int main()
           ]
         },
         {
+          "name": "magnetic_field",
+          "function_type": 1,
+          "extrapolation": "clamp",
+          "data": [
+            [0.0, 0.0],
+            [1.0, 10.0]
+          ]
+        },
+        {
           "name": "fx",
           "function_type": 2,
           "expression": "scale * wind(t)",
@@ -68,6 +77,12 @@ int main()
         "dynamic_pressure",
         std::unordered_map<std::string, double>{{"t", 1.5}});
     std::cout << "dynamic_pressure(t=1.5) = " << dynamic_pressure << "\n";
+
+    const double magnetic_field = runtime.EvaluateUnary("magnetic_field", 0.5);
+    std::cout << "magnetic_field(time=0.5) = " << magnetic_field << "\n";
+
+    const double density = runtime.EvaluateUnary("rho0", 123.0);
+    std::cout << "rho0 through EvaluateUnary = " << density << "\n";
 
     const nlohmann::json config_object = nlohmann::json::parse(config);
     tfp::utility::ExpressionRuntime object_runtime =
