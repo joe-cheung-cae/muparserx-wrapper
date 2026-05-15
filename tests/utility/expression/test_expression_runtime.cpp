@@ -4,6 +4,7 @@
 #include "tfp/utility/expression/expression_error.h"
 #include "tfp/utility/expression/expression_runtime.h"
 
+#include <type_traits>
 #include <unordered_map>
 #include <vector>
 
@@ -15,6 +16,10 @@ int main()
     using tfp::utility::ExpressionRuntimeConfig;
     using tfp::utility::ExtrapolationMode;
     using tfp::utility::TableConfig;
+
+    static_assert(std::is_same<decltype(ExpressionRuntimeConfig::constants),
+                               std::unordered_map<std::string, double> >::value,
+                  "ExpressionRuntimeConfig constants must store resolved double values");
 
     const char* config = R"json({
       "constants": {"rho0": "1000.0"},
@@ -64,7 +69,7 @@ int main()
     TFP_REQUIRE(factory_runtime.GetArgumentNames("sum_xy") == std::vector<std::string>({"x", "y"}));
 
     ExpressionRuntimeConfig object_config;
-    object_config.constants["rho0"] = "1000.0";
+    object_config.constants["rho0"] = 1000.0;
     object_config.tables.push_back(TableConfig{"wind",
                                               std::vector<std::array<double, 2> >{{0.0, 0.0}, {1.0, 2.0}, {2.0, 4.0}},
                                               ExtrapolationMode::Linear});
@@ -127,7 +132,7 @@ int main()
                        table_runtime.Evaluate("wind_value", std::unordered_map<std::string, double>{{"t", 0.0}}));
 
     ExpressionRuntimeConfig invalid_config;
-    invalid_config.constants["dup"] = "1.0";
+    invalid_config.constants["dup"] = 1.0;
     invalid_config.expressions.push_back(ExpressionConfig{"dup", "1.0", std::vector<std::string>()});
     TFP_REQUIRE_THROWS(ExpressionError, ExpressionRuntime().LoadFromConfig(invalid_config));
 

@@ -1,6 +1,5 @@
 #include "tfp/utility/expression/expression_runtime.h"
 
-#include "constant_resolver.h"
 #include "expression_compiler.h"
 #include "expression_config_loader.h"
 #include "tfp/utility/expression/expression_config.h"
@@ -26,10 +25,9 @@ public:
         // compiled into partially initialized runtime state.
         CheckNameConflicts(config);
 
-        // Constants are resolved first because tables and expressions may refer
-        // to them, while constant expressions themselves are not allowed to
-        // depend on runtime variables or table callbacks.
-        std::unordered_map<std::string, double> constants = ResolveConstants(config.constants);
+        // ExpressionRuntimeConfig stores normalized constants, so compilation
+        // can register them directly for tables and runtime expressions.
+        const std::unordered_map<std::string, double>& constants = config.constants;
 
         std::unordered_map<std::string, std::shared_ptr<const TableFunction> > tables;
         std::unordered_map<std::string, std::vector<std::string> > argument_names;
@@ -46,7 +44,7 @@ public:
             argument_names[it->name] = it->wordable;
         }
 
-        for (std::unordered_map<std::string, std::string>::const_iterator it = config.constants.begin();
+        for (std::unordered_map<std::string, double>::const_iterator it = config.constants.begin();
              it != config.constants.end(); ++it)
         {
             argument_names[it->first] = std::vector<std::string>();
@@ -92,7 +90,7 @@ private:
         // global symbol namespace, so duplicate names would become ambiguous
         // long before evaluation.
         std::set<std::string> names;
-        for (std::unordered_map<std::string, std::string>::const_iterator it = config.constants.begin();
+        for (std::unordered_map<std::string, double>::const_iterator it = config.constants.begin();
              it != config.constants.end(); ++it)
         {
             if (!names.insert(it->first).second)

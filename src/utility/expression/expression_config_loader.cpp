@@ -1,5 +1,6 @@
 #include "expression_config_loader.h"
 
+#include "constant_resolver.h"
 #include "tfp/utility/expression/expression_error.h"
 
 #include <fstream>
@@ -7,6 +8,7 @@
 #include <nlohmann/json.hpp>
 #include <set>
 #include <sstream>
+#include <unordered_map>
 
 namespace tfp
 {
@@ -22,13 +24,15 @@ ExpressionError ConfigError(const std::string& message)
     return ExpressionError(ExpressionErrorCode::ConfigError, message);
 }
 
-void AddConstant(const std::string& name, const std::string& value, ExpressionRuntimeConfig& config)
+void AddConstant(const std::string& name,
+                 const std::string& value,
+                 std::unordered_map<std::string, std::string>& raw_constants)
 {
-    if (config.constants.find(name) != config.constants.end())
+    if (raw_constants.find(name) != raw_constants.end())
     {
         throw ConfigError("duplicate global symbol '" + name + "'");
     }
-    config.constants[name] = value;
+    raw_constants[name] = value;
 }
 
 ExtrapolationMode ParseExtrapolation(const std::string& table_name, const Json& table)
@@ -126,7 +130,7 @@ TableConfig ParseTableObject(const std::string& table_name, const Json& table_js
     return table;
 }
 
-void ParseConstants(const Json& root, ExpressionRuntimeConfig& config)
+void ParseConstants(const Json& root, std::unordered_map<std::string, std::string>& raw_constants)
 {
     if (!root.contains("constants"))
     {
@@ -143,7 +147,7 @@ void ParseConstants(const Json& root, ExpressionRuntimeConfig& config)
         {
             throw ConfigError("constant '" + it.key() + "' must be a string expression");
         }
-        AddConstant(it.key(), it.value().get<std::string>(), config);
+        AddConstant(it.key(), it.value().get<std::string>(), raw_constants);
     }
 }
 
@@ -265,7 +269,10 @@ void ParseExpressions(const Json& root, ExpressionRuntimeConfig& config)
     }
 }
 
-void ParseFunctionDefinition(const Json& function_json, std::size_t index, ExpressionRuntimeConfig& config)
+void ParseFunctionDefinition(const Json& function_json,
+                             std::size_t index,
+                             ExpressionRuntimeConfig& config,
+                             std::unordered_map<std::string, std::string>& raw_constants)
 {
     if (!function_json.is_object())
     {
@@ -289,7 +296,7 @@ void ParseFunctionDefinition(const Json& function_json, std::size_t index, Expre
         {
             throw ConfigError("function '" + name + "': value must be a string expression");
         }
-        AddConstant(name, function_json["value"].get<std::string>(), config);
+        AddConstant(name, function_json["value"].get<std::string>(), raw_constants);
         return;
     }
 
@@ -309,7 +316,9 @@ void ParseFunctionDefinition(const Json& function_json, std::size_t index, Expre
                       std::to_string(function_type) + "'");
 }
 
-void ParseFunctions(const Json& root, ExpressionRuntimeConfig& config)
+void ParseFunctions(const Json& root,
+                    ExpressionRuntimeConfig& config,
+                    std::unordered_map<std::string, std::string>& raw_constants)
 {
     if (!root.contains("functions"))
     {
@@ -322,7 +331,7 @@ void ParseFunctions(const Json& root, ExpressionRuntimeConfig& config)
 
     for (std::size_t i = 0; i < root["functions"].size(); ++i)
     {
-        ParseFunctionDefinition(root["functions"][i], i, config);
+        ParseFunctionDefinition(root["functions"][i], i, config, raw_constants);
     }
 }
 
@@ -353,12 +362,14 @@ ExpressionRuntimeConfig LoadExpressionRuntimeConfigFromJsonObject(const nlohmann
     // The loader normalizes each top-level section into one internal config
     // object so later compilation stages can stay independent from JSON types.
     ExpressionRuntimeConfig config;
+    std::unordered_map<std::string, std::string> raw_constants;
     try
     {
-        ParseConstants(json_object, config);
+        ParseConstants(json_object, raw_constants);
         ParseTables(json_object, config);
         ParseExpressions(json_object, config);
-        ParseFunctions(json_object, config);
+        ParseFunctions(json_object, config, raw_constants);
+        config.constants = ResolveConstants(raw_constants);
     }
     catch (const ExpressionError&)
     {

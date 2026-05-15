@@ -45,9 +45,10 @@ struct ExpressionConfig
 // loader before constants, tables, and expressions are compiled.
 struct ExpressionRuntimeConfig
 {
-    // Named constant expressions. Values are resolved to double before tables
-    // and runtime expressions are compiled; unresolved/cyclic dependencies fail.
-    std::unordered_map<std::string, std::string> constants;
+    // Named constants after loader normalization. JSON constant expressions are
+    // resolved to double before they are stored here; unresolved/cyclic
+    // dependencies fail during loading.
+    std::unordered_map<std::string, double> constants;
     // Table function definitions available to compiled expressions.
     std::vector<TableConfig> tables;
     // Runtime expressions available by name after loading.

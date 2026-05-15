@@ -158,9 +158,10 @@ struct ExpressionConfig
 // loader before constants, tables, and expressions are compiled.
 struct ExpressionRuntimeConfig
 {
-    // Named constant expressions. Values are resolved to double before tables
-    // and runtime expressions are compiled; unresolved/cyclic dependencies fail.
-    std::unordered_map<std::string, std::string> constants;
+    // Named constants after loader normalization. JSON constant expressions are
+    // resolved to double before they are stored here; unresolved/cyclic
+    // dependencies fail during loading.
+    std::unordered_map<std::string, double> constants;
     // Table function definitions available to compiled expressions.
     std::vector<TableConfig> tables;
     // Runtime expressions available by name after loading.
@@ -1085,13 +1086,15 @@ inline ExpressionError ConfigError(const std::string& message)
     return ExpressionError(ExpressionErrorCode::ConfigError, message);
 }
 
-inline void AddConstant(const std::string& name, const std::string& value, ExpressionRuntimeConfig& config)
+inline void AddConstant(const std::string& name,
+                        const std::string& value,
+                        std::unordered_map<std::string, std::string>& raw_constants)
 {
-    if (config.constants.find(name) != config.constants.end())
+    if (raw_constants.find(name) != raw_constants.end())
     {
         throw ConfigError("duplicate global symbol '" + name + "'");
     }
-    config.constants[name] = value;
+    raw_constants[name] = value;
 }
 
 inline ExtrapolationMode ParseExtrapolation(const std::string& table_name, const Json& table)
@@ -1189,7 +1192,7 @@ inline TableConfig ParseTableObject(const std::string& table_name, const Json& t
     return table;
 }
 
-inline void ParseConstants(const Json& root, ExpressionRuntimeConfig& config)
+inline void ParseConstants(const Json& root, std::unordered_map<std::string, std::string>& raw_constants)
 {
     if (!root.contains("constants"))
     {
@@ -1206,7 +1209,7 @@ inline void ParseConstants(const Json& root, ExpressionRuntimeConfig& config)
         {
             throw ConfigError("constant '" + it.key() + "' must be a string expression");
         }
-        AddConstant(it.key(), it.value().get<std::string>(), config);
+        AddConstant(it.key(), it.value().get<std::string>(), raw_constants);
     }
 }
 
@@ -1328,7 +1331,10 @@ inline void ParseExpressions(const Json& root, ExpressionRuntimeConfig& config)
     }
 }
 
-inline void ParseFunctionDefinition(const Json& function_json, std::size_t index, ExpressionRuntimeConfig& config)
+inline void ParseFunctionDefinition(const Json& function_json,
+                                    std::size_t index,
+                                    ExpressionRuntimeConfig& config,
+                                    std::unordered_map<std::string, std::string>& raw_constants)
 {
     if (!function_json.is_object())
     {
@@ -1352,7 +1358,7 @@ inline void ParseFunctionDefinition(const Json& function_json, std::size_t index
         {
             throw ConfigError("function '" + name + "': value must be a string expression");
         }
-        AddConstant(name, function_json["value"].get<std::string>(), config);
+        AddConstant(name, function_json["value"].get<std::string>(), raw_constants);
         return;
     }
 
@@ -1372,7 +1378,9 @@ inline void ParseFunctionDefinition(const Json& function_json, std::size_t index
                       std::to_string(function_type) + "'");
 }
 
-inline void ParseFunctions(const Json& root, ExpressionRuntimeConfig& config)
+inline void ParseFunctions(const Json& root,
+                           ExpressionRuntimeConfig& config,
+                           std::unordered_map<std::string, std::string>& raw_constants)
 {
     if (!root.contains("functions"))
     {
@@ -1385,7 +1393,7 @@ inline void ParseFunctions(const Json& root, ExpressionRuntimeConfig& config)
 
     for (std::size_t i = 0; i < root["functions"].size(); ++i)
     {
-        ParseFunctionDefinition(root["functions"][i], i, config);
+        ParseFunctionDefinition(root["functions"][i], i, config, raw_constants);
     }
 }
 
@@ -1416,12 +1424,14 @@ inline ExpressionRuntimeConfig LoadExpressionRuntimeConfigFromJsonObject(const n
     // The loader normalizes each top-level section into one internal config
     // object so later compilation stages can stay independent from JSON types.
     ExpressionRuntimeConfig config;
+    std::unordered_map<std::string, std::string> raw_constants;
     try
     {
-        ParseConstants(json_object, config);
+        ParseConstants(json_object, raw_constants);
         ParseTables(json_object, config);
         ParseExpressions(json_object, config);
-        ParseFunctions(json_object, config);
+        ParseFunctions(json_object, config, raw_constants);
+        config.constants = ResolveConstants(raw_constants);
     }
     catch (const ExpressionError&)
     {
@@ -1518,10 +1528,9 @@ public:
         // compiled into partially initialized runtime state.
         CheckNameConflicts(config);
 
-        // Constants are resolved first because tables and expressions may refer
-        // to them, while constant expressions themselves are not allowed to
-        // depend on runtime variables or table callbacks.
-        std::unordered_map<std::string, double> constants = ResolveConstants(config.constants);
+        // ExpressionRuntimeConfig stores normalized constants, so compilation
+        // can register them directly for tables and runtime expressions.
+        const std::unordered_map<std::string, double>& constants = config.constants;
 
         std::unordered_map<std::string, std::shared_ptr<const TableFunction> > tables;
         std::unordered_map<std::string, std::vector<std::string> > argument_names;
@@ -1538,7 +1547,7 @@ public:
             argument_names[it->name] = it->wordable;
         }
 
-        for (std::unordered_map<std::string, std::string>::const_iterator it = config.constants.begin();
+        for (std::unordered_map<std::string, double>::const_iterator it = config.constants.begin();
              it != config.constants.end(); ++it)
         {
             argument_names[it->first] = std::vector<std::string>();
@@ -1584,7 +1593,7 @@ private:
         // global symbol namespace, so duplicate names would become ambiguous
         // long before evaluation.
         std::set<std::string> names;
-        for (std::unordered_map<std::string, std::string>::const_iterator it = config.constants.begin();
+        for (std::unordered_map<std::string, double>::const_iterator it = config.constants.begin();
              it != config.constants.end(); ++it)
         {
             if (!names.insert(it->first).second)
