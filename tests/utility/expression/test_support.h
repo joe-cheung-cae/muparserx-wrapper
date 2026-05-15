@@ -55,6 +55,39 @@ void RequireThrows(const std::function<void()>& function, const char* expression
     std::exit(1);
 }
 
+template <typename ExceptionT>
+void RequireThrowsMessage(const std::function<void()>& function,
+                          const std::string& expected_message,
+                          const char* expression,
+                          const char* file,
+                          int line)
+{
+    try
+    {
+        function();
+    }
+    catch (const ExceptionT& error)
+    {
+        if (std::string(error.what()).find(expected_message) != std::string::npos)
+        {
+            return;
+        }
+
+        std::cerr << file << ":" << line << ": " << expression << " threw message '" << error.what()
+                  << "', expected to contain '" << expected_message << "'\n";
+        std::exit(1);
+    }
+    catch (const std::exception& error)
+    {
+        std::cerr << file << ":" << line << ": " << expression << " threw unexpected exception: "
+                  << error.what() << "\n";
+        std::exit(1);
+    }
+
+    std::cerr << file << ":" << line << ": expected exception from " << expression << "\n";
+    std::exit(1);
+}
+
 } // namespace test
 } // namespace utility
 } // namespace tfp
@@ -64,5 +97,8 @@ void RequireThrows(const std::function<void()>& function, const char* expression
     ::tfp::utility::test::RequireNear((actual), (expected), (tolerance), __FILE__, __LINE__)
 #define TFP_REQUIRE_THROWS(exception_type, expr) \
     ::tfp::utility::test::RequireThrows<exception_type>([&]() { expr; }, #expr, __FILE__, __LINE__)
+#define TFP_REQUIRE_THROWS_MESSAGE(exception_type, expr, expected_message) \
+    ::tfp::utility::test::RequireThrowsMessage<exception_type>( \
+        [&]() { expr; }, (expected_message), #expr, __FILE__, __LINE__)
 
 #endif

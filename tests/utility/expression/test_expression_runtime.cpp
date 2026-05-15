@@ -39,8 +39,14 @@ int main()
     runtime.LoadFromJsonString(config);
 
     TFP_REQUIRE_NEAR(runtime.Evaluate("fx", std::unordered_map<std::string, double>{{"t", 1.5}}), 3000.0, 1e-12);
+    TFP_REQUIRE_NEAR(runtime.EvaluateUnary("fx", 1.5), 3000.0, 1e-12);
     TFP_REQUIRE_NEAR(runtime.GetUnaryExpression("fx").Evaluate(1.5), 3000.0, 1e-12);
     TFP_REQUIRE_NEAR(runtime.GetExpression("sum_xy").Evaluate(std::vector<double>{2.0, 3.0}), 32.0, 1e-12);
+    TFP_REQUIRE_NEAR(runtime.Evaluate("rho0", std::unordered_map<std::string, double>()), 1000.0, 1e-12);
+    TFP_REQUIRE_NEAR(runtime.EvaluateUnary("rho0", 123.0), 1000.0, 1e-12);
+    TFP_REQUIRE_NEAR(runtime.Evaluate("wind", std::unordered_map<std::string, double>{{"x", 1.5}}), 3.0, 1e-12);
+    TFP_REQUIRE_NEAR(runtime.Evaluate("wind", std::unordered_map<std::string, double>{{"t", 1.5}}), 3.0, 1e-12);
+    TFP_REQUIRE_NEAR(runtime.EvaluateUnary("wind", 1.5), 3.0, 1e-12);
     TFP_REQUIRE(runtime.GetArgumentNames("rho0").empty());
     TFP_REQUIRE(runtime.GetArgumentNames("wind") == std::vector<std::string>{"x"});
     TFP_REQUIRE(runtime.GetArgumentNames("fx") == std::vector<std::string>{"t"});
@@ -61,8 +67,14 @@ int main()
     })json");
 
     TFP_REQUIRE_NEAR(factory_runtime.Evaluate("fx", std::unordered_map<std::string, double>{{"t", 1.5}}), 3000.0, 1e-12);
+    TFP_REQUIRE_NEAR(factory_runtime.EvaluateUnary("fx", 1.5), 3000.0, 1e-12);
     TFP_REQUIRE_NEAR(factory_runtime.GetUnaryExpression("fx").Evaluate(1.5), 3000.0, 1e-12);
     TFP_REQUIRE_NEAR(factory_runtime.GetExpression("sum_xy").Evaluate(std::vector<double>{2.0, 3.0}), 32.0, 1e-12);
+    TFP_REQUIRE_NEAR(factory_runtime.Evaluate("rho0", std::unordered_map<std::string, double>()), 1000.0, 1e-12);
+    TFP_REQUIRE_NEAR(factory_runtime.EvaluateUnary("rho0", 123.0), 1000.0, 1e-12);
+    TFP_REQUIRE_NEAR(factory_runtime.Evaluate("wind", std::unordered_map<std::string, double>{{"x", 1.5}}), 3.0, 1e-12);
+    TFP_REQUIRE_NEAR(factory_runtime.Evaluate("wind", std::unordered_map<std::string, double>{{"t", 1.5}}), 3.0, 1e-12);
+    TFP_REQUIRE_NEAR(factory_runtime.EvaluateUnary("wind", 1.5), 3.0, 1e-12);
     TFP_REQUIRE(factory_runtime.GetArgumentNames("rho0").empty());
     TFP_REQUIRE(factory_runtime.GetArgumentNames("wind") == std::vector<std::string>{"x"});
     TFP_REQUIRE(factory_runtime.GetArgumentNames("fx") == std::vector<std::string>{"t"});
@@ -80,8 +92,14 @@ int main()
     object_runtime.LoadFromConfig(object_config);
 
     TFP_REQUIRE_NEAR(object_runtime.Evaluate("fx", std::unordered_map<std::string, double>{{"t", 1.5}}), 3000.0, 1e-12);
+    TFP_REQUIRE_NEAR(object_runtime.EvaluateUnary("fx", 1.5), 3000.0, 1e-12);
     TFP_REQUIRE_NEAR(object_runtime.GetUnaryExpression("fx").Evaluate(1.5), 3000.0, 1e-12);
     TFP_REQUIRE_NEAR(object_runtime.GetExpression("sum_xy").Evaluate(std::vector<double>{2.0, 3.0}), 32.0, 1e-12);
+    TFP_REQUIRE_NEAR(object_runtime.Evaluate("rho0", std::unordered_map<std::string, double>()), 1000.0, 1e-12);
+    TFP_REQUIRE_NEAR(object_runtime.EvaluateUnary("rho0", 123.0), 1000.0, 1e-12);
+    TFP_REQUIRE_NEAR(object_runtime.Evaluate("wind", std::unordered_map<std::string, double>{{"x", 1.5}}), 3.0, 1e-12);
+    TFP_REQUIRE_NEAR(object_runtime.Evaluate("wind", std::unordered_map<std::string, double>{{"t", 1.5}}), 3.0, 1e-12);
+    TFP_REQUIRE_NEAR(object_runtime.EvaluateUnary("wind", 1.5), 3.0, 1e-12);
     TFP_REQUIRE(object_runtime.GetArgumentNames("rho0").empty());
     TFP_REQUIRE(object_runtime.GetArgumentNames("wind") == std::vector<std::string>{"x"});
     TFP_REQUIRE(object_runtime.GetArgumentNames("fx") == std::vector<std::string>{"t"});
@@ -89,18 +107,85 @@ int main()
 
     ExpressionRuntime object_factory_runtime = ExpressionRuntime::CreateFromConfig(object_config);
     TFP_REQUIRE_NEAR(object_factory_runtime.Evaluate("fx", std::unordered_map<std::string, double>{{"t", 1.5}}), 3000.0, 1e-12);
+    TFP_REQUIRE_NEAR(object_factory_runtime.EvaluateUnary("fx", 1.5), 3000.0, 1e-12);
     TFP_REQUIRE_NEAR(object_factory_runtime.GetUnaryExpression("fx").Evaluate(1.5), 3000.0, 1e-12);
     TFP_REQUIRE_NEAR(object_factory_runtime.GetExpression("sum_xy").Evaluate(std::vector<double>{2.0, 3.0}), 32.0, 1e-12);
+    TFP_REQUIRE_NEAR(object_factory_runtime.Evaluate("rho0", std::unordered_map<std::string, double>()), 1000.0, 1e-12);
+    TFP_REQUIRE_NEAR(object_factory_runtime.EvaluateUnary("rho0", 123.0), 1000.0, 1e-12);
+    TFP_REQUIRE_NEAR(object_factory_runtime.Evaluate("wind", std::unordered_map<std::string, double>{{"x", 1.5}}), 3.0, 1e-12);
+    TFP_REQUIRE_NEAR(object_factory_runtime.Evaluate("wind", std::unordered_map<std::string, double>{{"t", 1.5}}), 3.0, 1e-12);
+    TFP_REQUIRE_NEAR(object_factory_runtime.EvaluateUnary("wind", 1.5), 3.0, 1e-12);
     TFP_REQUIRE(object_factory_runtime.GetArgumentNames("rho0").empty());
     TFP_REQUIRE(object_factory_runtime.GetArgumentNames("wind") == std::vector<std::string>{"x"});
     TFP_REQUIRE(object_factory_runtime.GetArgumentNames("fx") == std::vector<std::string>{"t"});
     TFP_REQUIRE(object_factory_runtime.GetArgumentNames("sum_xy") == std::vector<std::string>({"x", "y"}));
 
+    ExpressionRuntimeConfig constant_item_config;
+    constant_item_config.constants["magnetic_field"] = 0.05;
+    ExpressionRuntime constant_item_runtime = ExpressionRuntime::CreateFromConfig(constant_item_config);
+    TFP_REQUIRE(constant_item_runtime.GetArgumentNames("magnetic_field").empty());
+    TFP_REQUIRE_NEAR(constant_item_runtime.Evaluate("magnetic_field", std::unordered_map<std::string, double>()),
+                     0.05,
+                     1e-12);
+    TFP_REQUIRE_NEAR(constant_item_runtime.EvaluateUnary("magnetic_field", 123.0), 0.05, 1e-12);
+    TFP_REQUIRE_THROWS_MESSAGE(ExpressionError,
+                               constant_item_runtime.Evaluate("magnetic_field",
+                                                              std::unordered_map<std::string, double>{{"x", 1.0}}),
+                               "constant 'magnetic_field' expects no variables");
+
+    ExpressionRuntimeConfig table_item_config;
+    table_item_config.tables.push_back(TableConfig{
+        "magnetic_field",
+        std::vector<std::array<double, 2> >{{0.0, 0.0}, {1.0, 10.0}},
+        ExtrapolationMode::Linear});
+    ExpressionRuntime table_item_runtime = ExpressionRuntime::CreateFromConfig(table_item_config);
+    TFP_REQUIRE(table_item_runtime.GetArgumentNames("magnetic_field") == std::vector<std::string>{"x"});
+    TFP_REQUIRE_NEAR(table_item_runtime.Evaluate("magnetic_field",
+                                                std::unordered_map<std::string, double>{{"x", 0.5}}),
+                     5.0,
+                     1e-12);
+    TFP_REQUIRE_NEAR(table_item_runtime.Evaluate("magnetic_field",
+                                                std::unordered_map<std::string, double>{{"t", 0.5}}),
+                     5.0,
+                     1e-12);
+    TFP_REQUIRE_NEAR(table_item_runtime.EvaluateUnary("magnetic_field", 0.5), 5.0, 1e-12);
+    TFP_REQUIRE_THROWS_MESSAGE(ExpressionError,
+                               table_item_runtime.Evaluate("magnetic_field",
+                                                           std::unordered_map<std::string, double>()),
+                               "table 'magnetic_field' requires variable 'x'");
+
+    ExpressionRuntimeConfig expression_item_config;
+    expression_item_config.expressions.push_back(
+        ExpressionConfig{"magnetic_field", "2.0 * t", std::vector<std::string>{"t"}});
+    ExpressionRuntime expression_item_runtime = ExpressionRuntime::CreateFromConfig(expression_item_config);
+    TFP_REQUIRE(expression_item_runtime.GetArgumentNames("magnetic_field") == std::vector<std::string>{"t"});
+    TFP_REQUIRE_NEAR(expression_item_runtime.Evaluate("magnetic_field",
+                                                     std::unordered_map<std::string, double>{{"t", 3.0}}),
+                     6.0,
+                     1e-12);
+    TFP_REQUIRE_NEAR(expression_item_runtime.EvaluateUnary("magnetic_field", 3.0), 6.0, 1e-12);
+
     TFP_REQUIRE_THROWS(ExpressionError, runtime.GetUnaryExpression("sum_xy"));
+    TFP_REQUIRE_THROWS_MESSAGE(ExpressionError, runtime.EvaluateUnary("sum_xy", 1.0), "expression 'sum_xy' is not unary");
     TFP_REQUIRE_THROWS(ExpressionError, runtime.GetExpression("sum_xy").Evaluate(std::vector<double>{2.0}));
     TFP_REQUIRE_THROWS(ExpressionError, runtime.Evaluate("fx", std::unordered_map<std::string, double>()));
+    TFP_REQUIRE_THROWS_MESSAGE(ExpressionError,
+                               runtime.Evaluate("rho0", std::unordered_map<std::string, double>{{"x", 1.0}}),
+                               "constant 'rho0' expects no variables");
+    TFP_REQUIRE_THROWS_MESSAGE(ExpressionError,
+                               runtime.Evaluate("wind", std::unordered_map<std::string, double>()),
+                               "table 'wind' requires variable 'x'");
+    TFP_REQUIRE_THROWS_MESSAGE(ExpressionError,
+                               runtime.Evaluate("wind", std::unordered_map<std::string, double>{{"t", 1.0}, {"y", 2.0}}),
+                               "table 'wind' requires variable 'x'");
     TFP_REQUIRE_THROWS(ExpressionError, runtime.GetExpression("missing"));
     TFP_REQUIRE_THROWS(ExpressionError, runtime.GetArgumentNames("missing"));
+    TFP_REQUIRE_THROWS_MESSAGE(ExpressionError,
+                               runtime.Evaluate("unknown", std::unordered_map<std::string, double>()),
+                               "runtime item 'unknown' does not exist");
+    TFP_REQUIRE_THROWS_MESSAGE(ExpressionError,
+                               runtime.EvaluateUnary("unknown", 0.0),
+                               "runtime item 'unknown' does not exist");
 
     TFP_REQUIRE_THROWS(ExpressionError, ExpressionRuntime().LoadFromJsonString(R"json({
       "expressions": {"bad": {"expression": "t + z", "wordable": ["t"]}}

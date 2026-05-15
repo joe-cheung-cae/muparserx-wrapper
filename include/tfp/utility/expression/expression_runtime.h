@@ -87,12 +87,14 @@ public:
     // if the name does not exist.
     std::vector<std::string> GetArgumentNames(const std::string& name) const;
 
-    // Evaluates an expression by variable name for convenience. This path is
-    // useful for low-frequency or debugging use, while repeated evaluation is
-    // better served by the typed handle APIs that avoid per-call name lookup.
-    // The variables map must contain every name in the expression's wordable
-    // list; extra map entries are ignored.
+    // Evaluates a named runtime item by variable name for convenience.
+    // Expressions use their declared wordable variables, tables use "x" (or a
+    // single supplied variable value), and constants expect no variables.
     double Evaluate(const std::string& name, const std::unordered_map<std::string, double>& variables) const;
+
+    // Evaluates a named runtime item as a one-dimensional function. Constants
+    // ignore x, tables evaluate at x, and expressions must be unary.
+    double EvaluateUnary(const std::string& name, double x) const;
 
 private:
     std::unique_ptr<detail::ExpressionRuntimeImpl> impl_;

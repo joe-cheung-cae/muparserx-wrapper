@@ -27,7 +27,7 @@ public:
 
         // ExpressionRuntimeConfig stores normalized constants, so compilation
         // can register them directly for tables and runtime expressions.
-        const std::unordered_map<std::string, double>& constants = config.constants;
+        std::unordered_map<std::string, double> constants = config.constants;
 
         std::unordered_map<std::string, std::shared_ptr<const TableFunction> > tables;
         std::unordered_map<std::string, std::vector<std::string> > argument_names;
@@ -50,6 +50,8 @@ public:
             argument_names[it->first] = std::vector<std::string>();
         }
 
+        constants_ = std::move(constants);
+        tables_ = std::move(tables);
         expressions_ = std::move(expressions);
         argument_names_ = std::move(argument_names);
     }
@@ -80,7 +82,73 @@ public:
 
     double Evaluate(const std::string& name, const std::unordered_map<std::string, double>& variables) const
     {
-        return FindExpression(name)->EvaluateMap(variables);
+        std::unordered_map<std::string, std::shared_ptr<RuntimeExpression> >::const_iterator expression =
+            expressions_.find(name);
+        if (expression != expressions_.end())
+        {
+            return expression->second->EvaluateMap(variables);
+        }
+
+        std::unordered_map<std::string, std::shared_ptr<const TableFunction> >::const_iterator table =
+            tables_.find(name);
+        if (table != tables_.end())
+        {
+            std::unordered_map<std::string, double>::const_iterator x = variables.find("x");
+            if (x != variables.end())
+            {
+                return table->second->Evaluate(x->second);
+            }
+            if (variables.size() == 1)
+            {
+                return table->second->Evaluate(variables.begin()->second);
+            }
+
+            throw ExpressionError(ExpressionErrorCode::InvalidArgument,
+                                  "table '" + name + "' requires variable 'x'");
+        }
+
+        std::unordered_map<std::string, double>::const_iterator constant = constants_.find(name);
+        if (constant != constants_.end())
+        {
+            if (!variables.empty())
+            {
+                throw ExpressionError(ExpressionErrorCode::InvalidArgument,
+                                      "constant '" + name + "' expects no variables");
+            }
+            return constant->second;
+        }
+
+        throw ExpressionError(ExpressionErrorCode::NotFound, "runtime item '" + name + "' does not exist");
+    }
+
+    double EvaluateUnary(const std::string& name, double x) const
+    {
+        std::unordered_map<std::string, std::shared_ptr<RuntimeExpression> >::const_iterator expression =
+            expressions_.find(name);
+        if (expression != expressions_.end())
+        {
+            if (expression->second->Arity() != 1)
+            {
+                throw ExpressionError(ExpressionErrorCode::InvalidArgument,
+                                      "expression '" + name + "' is not unary");
+            }
+            return expression->second->EvaluateUnary(x);
+        }
+
+        std::unordered_map<std::string, std::shared_ptr<const TableFunction> >::const_iterator table =
+            tables_.find(name);
+        if (table != tables_.end())
+        {
+            return table->second->Evaluate(x);
+        }
+
+        std::unordered_map<std::string, double>::const_iterator constant = constants_.find(name);
+        if (constant != constants_.end())
+        {
+            return constant->second;
+        }
+
+        throw ExpressionError(ExpressionErrorCode::NotFound, "runtime item '" + name + "' does not exist");
     }
 
 private:
@@ -145,6 +213,8 @@ private:
         return it->second;
     }
 
+    std::unordered_map<std::string, double> constants_;
+    std::unordered_map<std::string, std::shared_ptr<const TableFunction> > tables_;
     std::unordered_map<std::string, std::shared_ptr<RuntimeExpression> > expressions_;
     std::unordered_map<std::string, std::vector<std::string> > argument_names_;
 };
@@ -226,6 +296,11 @@ std::vector<std::string> ExpressionRuntime::GetArgumentNames(const std::string& 
 double ExpressionRuntime::Evaluate(const std::string& name, const std::unordered_map<std::string, double>& variables) const
 {
     return impl_->Evaluate(name, variables);
+}
+
+double ExpressionRuntime::EvaluateUnary(const std::string& name, double x) const
+{
+    return impl_->EvaluateUnary(name, x);
 }
 
 } // namespace utility
