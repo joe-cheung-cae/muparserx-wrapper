@@ -46,8 +46,7 @@ public:
     // fails.
     double EvaluateUnary(double x);
     // Translates variables by name into wordable order before evaluating.
-    // Missing required variables throw ExpressionError; extra entries are
-    // ignored.
+    // Missing required variables and extra entries throw ExpressionError.
     double EvaluateMap(const std::unordered_map<std::string, double>& variables);
 
 private:

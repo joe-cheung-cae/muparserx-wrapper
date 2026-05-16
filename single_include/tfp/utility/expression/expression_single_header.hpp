@@ -6,6 +6,7 @@
 #include <array>
 #include <cmath>
 #include <cstddef>
+#include <cstdint>
 #include <fstream>
 #include <memory>
 #include <nlohmann/json.hpp>
@@ -204,7 +205,8 @@ private:
     friend class ExpressionRuntime;
     friend class detail::ExpressionRuntimeImpl;
     // Binds the handle to compiled shared state. Runtime factory methods use
-    // this constructor so handles can outlive moved runtime objects.
+    // this constructor so handles can outlive moved or reloaded runtime objects
+    // as snapshots of the expression state at lookup time.
     explicit ExpressionHandle(std::shared_ptr<detail::RuntimeExpression> expression);
 
     std::shared_ptr<detail::RuntimeExpression> expression_;
@@ -227,7 +229,8 @@ private:
     friend class ExpressionRuntime;
     friend class detail::ExpressionRuntimeImpl;
     // Binds the handle to a compiled expression already checked for arity 1 by
-    // ExpressionRuntime::GetUnaryExpression().
+    // ExpressionRuntime::GetUnaryExpression(). The handle is a snapshot of the
+    // expression state at lookup time.
     explicit UnaryExpressionHandle(std::shared_ptr<detail::RuntimeExpression> expression);
 
     std::shared_ptr<detail::RuntimeExpression> expression_;
@@ -298,14 +301,15 @@ public:
     // state. File and JSON validation failures are reported as ExpressionError.
     void LoadFromJsonFile(const std::string& path);
 
-    // Returns a handle for ordered argument evaluation. The handle shares the
-    // compiled expression state owned by this runtime and remains valid after
-    // the runtime is moved, but concurrent evaluation still follows the runtime
-    // thread-safety rules because both use the same bound parser state.
+    // Returns a snapshot handle for ordered expression argument evaluation. The
+    // handle shares compiled expression state and remains valid after this
+    // runtime is moved or reloaded; after a reload it continues to evaluate the
+    // old compiled expression. Concurrent evaluation still follows the runtime
+    // thread-safety rules because handles use mutable parser-bound state.
     ExpressionHandle GetExpression(const std::string& name) const;
-    // Returns a handle specialized for expressions that declare exactly one
-    // runtime variable in wordable order. Requesting a non-unary expression is
-    // treated as an invalid argument error rather than a compile-time error.
+    // Returns a snapshot handle specialized for expressions that declare exactly
+    // one runtime variable in wordable order. This is expression-only; use
+    // EvaluateUnary() for unified constant/table/expression evaluation.
     UnaryExpressionHandle GetUnaryExpression(const std::string& name) const;
 
     // Returns the ordered runtime argument names for a named item loaded into
@@ -314,9 +318,9 @@ public:
     // if the name does not exist.
     std::vector<std::string> GetArgumentNames(const std::string& name) const;
 
-    // Evaluates a loaded runtime item by name. Expressions are evaluated with
-    // the supplied variable map, tables use variable "x" or the single supplied
-    // variable value, and constants require an empty variable map.
+    // Evaluates a loaded runtime item by name. Expressions require the supplied
+    // variable map to match wordable exactly, tables use the single supplied
+    // variable value (conventionally "x"), and constants require an empty map.
     double Evaluate(const std::string& name, const std::unordered_map<std::string, double>& variables) const;
 
     // Evaluates a loaded one-dimensional runtime item by name. Constants ignore
@@ -420,8 +424,7 @@ public:
     // fails.
     double EvaluateUnary(double x);
     // Translates variables by name into wordable order before evaluating.
-    // Missing required variables throw ExpressionError; extra entries are
-    // ignored.
+    // Missing required variables and extra entries throw ExpressionError.
     double EvaluateMap(const std::unordered_map<std::string, double>& variables);
 
 private:
@@ -897,9 +900,26 @@ inline RuntimeExpression::RuntimeExpression(
     }
     backend_.DefineVariables(wordable_);
 
-    backend_.SetExpression(expression_);
+    try
+    {
+        backend_.SetExpression(expression_);
+    }
+    catch (const ExpressionError& error)
+    {
+        throw ExpressionError(ExpressionErrorCode::CompileError,
+                              "expression '" + name_ + "' compile failed: " + error.what());
+    }
 
-    const std::vector<std::string> referenced_variables = backend_.GetReferencedVariables();
+    std::vector<std::string> referenced_variables;
+    try
+    {
+        referenced_variables = backend_.GetReferencedVariables();
+    }
+    catch (const ExpressionError& error)
+    {
+        throw ExpressionError(ExpressionErrorCode::CompileError,
+                              "expression '" + name_ + "' compile failed: " + error.what());
+    }
     for (std::vector<std::string>::const_iterator it = referenced_variables.begin(); it != referenced_variables.end(); ++it)
     {
         if (variable_indices_.find(*it) == variable_indices_.end())
@@ -984,6 +1004,22 @@ inline double RuntimeExpression::EvaluateMap(const std::unordered_map<std::strin
                                   "expression '" + name_ + "' missing variable '" + wordable_[i] + "'");
         }
         args[i] = value->second;
+    }
+
+    if (variables.size() != wordable_.size())
+    {
+        for (std::unordered_map<std::string, double>::const_iterator it = variables.begin(); it != variables.end(); ++it)
+        {
+            if (variable_indices_.find(it->first) == variable_indices_.end())
+            {
+                throw ExpressionError(ExpressionErrorCode::InvalidArgument,
+                                      "expression '" + name_ + "' received unexpected variable '" + it->first + "'");
+            }
+        }
+
+        throw ExpressionError(ExpressionErrorCode::InvalidArgument,
+                              "expression '" + name_ + "' expected " + std::to_string(wordable_.size()) +
+                                  " variables, got " + std::to_string(variables.size()));
     }
 
     return Evaluate(args);
@@ -1093,11 +1129,23 @@ inline void AddConstant(const std::string& name,
                         const std::string& value,
                         std::unordered_map<std::string, std::string>& raw_constants)
 {
+    if (name.empty())
+    {
+        throw ConfigError("name must not be empty");
+    }
     if (raw_constants.find(name) != raw_constants.end())
     {
         throw ConfigError("duplicate global symbol '" + name + "'");
     }
     raw_constants[name] = value;
+}
+
+inline void RequireNonEmptyName(const std::string& context, const std::string& name)
+{
+    if (name.empty())
+    {
+        throw ConfigError(context + ": name must not be empty");
+    }
 }
 
 inline ExtrapolationMode ParseExtrapolation(const std::string& table_name, const Json& table)
@@ -1237,9 +1285,9 @@ inline void ParseTables(const Json& root, ExpressionRuntimeConfig& config)
                 throw ConfigError("tables[" + std::to_string(i) + "]: name must be a string");
             }
 
-            config.tables.push_back(ParseTableObject(
-                table_json["name"].get<std::string>(),
-                table_json));
+            const std::string name = table_json["name"].get<std::string>();
+            RequireNonEmptyName("tables[" + std::to_string(i) + "]", name);
+            config.tables.push_back(ParseTableObject(name, table_json));
         }
         return;
     }
@@ -1251,6 +1299,7 @@ inline void ParseTables(const Json& root, ExpressionRuntimeConfig& config)
 
     for (Json::const_iterator it = root["tables"].begin(); it != root["tables"].end(); ++it)
     {
+        RequireNonEmptyName("table '" + it.key() + "'", it.key());
         config.tables.push_back(ParseTableObject(it.key(), it.value()));
     }
 }
@@ -1316,9 +1365,9 @@ inline void ParseExpressions(const Json& root, ExpressionRuntimeConfig& config)
                 throw ConfigError("expressions[" + std::to_string(i) + "]: name must be a string");
             }
 
-            config.expressions.push_back(ParseExpressionObject(
-                expression_json["name"].get<std::string>(),
-                expression_json));
+            const std::string name = expression_json["name"].get<std::string>();
+            RequireNonEmptyName("expressions[" + std::to_string(i) + "]", name);
+            config.expressions.push_back(ParseExpressionObject(name, expression_json));
         }
         return;
     }
@@ -1330,8 +1379,37 @@ inline void ParseExpressions(const Json& root, ExpressionRuntimeConfig& config)
 
     for (Json::const_iterator it = root["expressions"].begin(); it != root["expressions"].end(); ++it)
     {
+        RequireNonEmptyName("expression '" + it.key() + "'", it.key());
         config.expressions.push_back(ParseExpressionObject(it.key(), it.value()));
     }
+}
+
+inline int ParseFunctionType(const Json& function_json, std::size_t index)
+{
+    if (!function_json.contains("function_type") ||
+        (!function_json["function_type"].is_number_integer() && !function_json["function_type"].is_number_unsigned()))
+    {
+        throw ConfigError("functions[" + std::to_string(index) + "]: function_type must be an integer");
+    }
+
+    if (function_json["function_type"].is_number_unsigned())
+    {
+        const std::uint64_t value = function_json["function_type"].get<std::uint64_t>();
+        if (value > 2)
+        {
+            throw ConfigError("functions[" + std::to_string(index) + "]: function_type unsupported '" +
+                              std::to_string(value) + "'");
+        }
+        return static_cast<int>(value);
+    }
+
+    const std::int64_t value = function_json["function_type"].get<std::int64_t>();
+    if (value < 0 || value > 2)
+    {
+        throw ConfigError("functions[" + std::to_string(index) + "]: function_type unsupported '" +
+                          std::to_string(value) + "'");
+    }
+    return static_cast<int>(value);
 }
 
 inline void ParseFunctionDefinition(const Json& function_json,
@@ -1347,13 +1425,9 @@ inline void ParseFunctionDefinition(const Json& function_json,
     {
         throw ConfigError("functions[" + std::to_string(index) + "]: name must be a string");
     }
-    if (!function_json.contains("function_type") || !function_json["function_type"].is_number_integer())
-    {
-        throw ConfigError("functions[" + std::to_string(index) + "]: function_type must be an integer");
-    }
-
     const std::string name = function_json["name"].get<std::string>();
-    const int function_type = function_json["function_type"].get<int>();
+    RequireNonEmptyName("functions[" + std::to_string(index) + "]", name);
+    const int function_type = ParseFunctionType(function_json, index);
 
     if (function_type == 0)
     {
@@ -1377,7 +1451,7 @@ inline void ParseFunctionDefinition(const Json& function_json,
         return;
     }
 
-    throw ConfigError("functions[" + std::to_string(index) + "]: unsupported function_type '" +
+    throw ConfigError("functions[" + std::to_string(index) + "]: function_type unsupported '" +
                       std::to_string(function_type) + "'");
 }
 
@@ -1599,18 +1673,18 @@ public:
             tables_.find(name);
         if (table != tables_.end())
         {
-            std::unordered_map<std::string, double>::const_iterator x = variables.find("x");
-            if (x != variables.end())
+            if (variables.empty())
             {
-                return table->second->Evaluate(x->second);
+                throw ExpressionError(ExpressionErrorCode::InvalidArgument,
+                                      "table '" + name + "' requires variable 'x'");
             }
-            if (variables.size() == 1)
+            if (variables.size() != 1)
             {
-                return table->second->Evaluate(variables.begin()->second);
+                throw ExpressionError(ExpressionErrorCode::InvalidArgument,
+                                      "table '" + name + "' expects exactly one variable");
             }
 
-            throw ExpressionError(ExpressionErrorCode::InvalidArgument,
-                                  "table '" + name + "' requires variable 'x'");
+            return table->second->Evaluate(variables.begin()->second);
         }
 
         std::unordered_map<std::string, double>::const_iterator constant = constants_.find(name);
@@ -1667,6 +1741,10 @@ private:
         for (std::unordered_map<std::string, double>::const_iterator it = config.constants.begin();
              it != config.constants.end(); ++it)
         {
+            if (it->first.empty())
+            {
+                throw ExpressionError(ExpressionErrorCode::ConfigError, "runtime item name must not be empty");
+            }
             if (!names.insert(it->first).second)
             {
                 throw ExpressionError(ExpressionErrorCode::ConfigError, "duplicate global symbol '" + it->first + "'");
@@ -1674,6 +1752,10 @@ private:
         }
         for (std::vector<TableConfig>::const_iterator it = config.tables.begin(); it != config.tables.end(); ++it)
         {
+            if (it->name.empty())
+            {
+                throw ExpressionError(ExpressionErrorCode::ConfigError, "runtime item name must not be empty");
+            }
             if (!names.insert(it->name).second)
             {
                 throw ExpressionError(ExpressionErrorCode::ConfigError, "duplicate global symbol '" + it->name + "'");
@@ -1681,6 +1763,10 @@ private:
         }
         for (std::vector<ExpressionConfig>::const_iterator it = config.expressions.begin(); it != config.expressions.end(); ++it)
         {
+            if (it->name.empty())
+            {
+                throw ExpressionError(ExpressionErrorCode::ConfigError, "runtime item name must not be empty");
+            }
             if (!names.insert(it->name).second)
             {
                 throw ExpressionError(ExpressionErrorCode::ConfigError, "duplicate global symbol '" + it->name + "'");

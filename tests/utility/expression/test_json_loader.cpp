@@ -5,9 +5,33 @@
 
 #include <nlohmann/json.hpp>
 
+namespace
+{
+
+void RequireExpressionError(const std::function<void()>& function,
+                            tfp::utility::ExpressionErrorCode expected_code,
+                            const std::string& expected_message)
+{
+    try
+    {
+        function();
+    }
+    catch (const tfp::utility::ExpressionError& error)
+    {
+        TFP_REQUIRE(error.Code() == expected_code);
+        TFP_REQUIRE(std::string(error.what()).find(expected_message) != std::string::npos);
+        return;
+    }
+
+    TFP_REQUIRE(false);
+}
+
+} // namespace
+
 int main()
 {
     using tfp::utility::ExpressionError;
+    using tfp::utility::ExpressionErrorCode;
     using tfp::utility::ExpressionRuntime;
 
     const char* valid_json = R"json({
@@ -42,15 +66,20 @@ int main()
         {"constants", nlohmann::json::array()}
     }));
 
-    TFP_REQUIRE_THROWS(ExpressionError, ExpressionRuntime().LoadFromJsonObject(nlohmann::json{
-        {"functions", nlohmann::json::array({
-            {
-                {"name", "bad"},
-                {"function_type", 9223372036854775807ull},
-                {"value", "1.0"}
-            }
-        })}
-    }));
+    RequireExpressionError(
+        [&]() {
+            ExpressionRuntime().LoadFromJsonObject(nlohmann::json{
+                {"functions", nlohmann::json::array({
+                    {
+                        {"name", "bad"},
+                        {"function_type", 9223372036854775807ull},
+                        {"value", "1.0"}
+                    }
+                })}
+            });
+        },
+        ExpressionErrorCode::ConfigError,
+        "functions[0]: function_type");
 
     ExpressionRuntime legacy_runtime;
     legacy_runtime.LoadFromJsonString(R"json({
@@ -97,6 +126,11 @@ int main()
       "functions": [{"function_type": 0, "value": "1.0"}]
     })json"));
 
+    TFP_REQUIRE_THROWS_MESSAGE(ExpressionError, ExpressionRuntime().LoadFromJsonString(R"json({
+      "functions": [{"name": "", "function_type": 0, "value": "1.0"}]
+    })json"),
+                               "name must not be empty");
+
     TFP_REQUIRE_THROWS(ExpressionError, ExpressionRuntime().LoadFromJsonString(R"json({
       "functions": [{"name": "rho0", "value": "1.0"}]
     })json"));
@@ -127,6 +161,12 @@ int main()
       "tables": [{"name": 123, "data": [[0.0, 0.0]]}],
       "expressions": {}
     })json"));
+
+    TFP_REQUIRE_THROWS_MESSAGE(ExpressionError, ExpressionRuntime().LoadFromJsonString(R"json({
+      "tables": [{"name": "", "data": [[0.0, 0.0], [1.0, 1.0]]}],
+      "expressions": {}
+    })json"),
+                               "name must not be empty");
 
     TFP_REQUIRE_THROWS(ExpressionError, ExpressionRuntime().LoadFromJsonString(R"json({
       "tables": ["bad"],
@@ -184,6 +224,13 @@ int main()
         {"expression": "t", "wordable": ["t"]}
       ]
     })json"));
+
+    TFP_REQUIRE_THROWS_MESSAGE(ExpressionError, ExpressionRuntime().LoadFromJsonString(R"json({
+      "expressions": [
+        {"name": "", "expression": "t", "wordable": ["t"]}
+      ]
+    })json"),
+                               "name must not be empty");
 
     return 0;
 }

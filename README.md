@@ -283,9 +283,10 @@ argument names:
 
 The runtime evaluation APIs also support these categories uniformly:
 
-- `Evaluate(name, variables)` evaluates expressions with the supplied variable
-  map, tables with variable `"x"` or a single supplied variable value, and
-  constants with an empty variable map.
+- `Evaluate(name, variables)` evaluates expressions only when the variable map
+  exactly matches the expression `wordable` list, tables with exactly one
+  supplied variable value (conventionally `"x"`), and constants with an empty
+  variable map.
 - `EvaluateUnary(name, x)` evaluates one-dimensional runtime items directly:
   constants ignore `x`, tables evaluate at `x`, and expressions must declare
   exactly one runtime variable.
@@ -381,6 +382,10 @@ For compatibility, the loader also accepts the older object form:
 
 The `wordable` order is the argument order for fast evaluation.
 
+Named expressions are runtime lookup items, not parser callbacks. An expression
+may refer to constants and table functions, but it may not call another named
+expression as a function.
+
 For compatibility, the loader also accepts the older object form:
 
 ```json
@@ -419,11 +424,18 @@ double d = runtime.EvaluateUnary("magnetic_field", time);
 
 Use `LoadFromJsonObject()` when your application already owns a parsed
 `nlohmann::json` object. Use `LoadFromConfig()` when constructing the normalized
-runtime model in C++. Use `GetUnaryExpression()` for high-frequency one-argument
-expressions. Use `GetExpression()` for high-frequency multi-argument
-expressions. Use `EvaluateUnary()` when solver code needs one call site that
-works whether a loaded item is a constant, table, or unary expression. Use the
-map API for low-frequency or debug calls.
+runtime model in C++. Use `GetUnaryExpression()` for high-frequency
+one-argument expressions and `GetExpression()` for high-frequency
+multi-argument expressions; both handle APIs are expression-only. Use
+`EvaluateUnary()` when solver code needs one call site that works whether a
+loaded item is a constant, table, or unary expression. Use the map API for
+low-frequency or debug calls, and pass exactly the variables required by the
+runtime item.
+
+Expression handles are snapshots of compiled expression state. If a runtime is
+loaded again after a handle is created, the old handle remains memory-safe and
+continues to evaluate the old compiled expression; new lookups use the reloaded
+runtime state.
 
 ## Error Handling
 
@@ -446,7 +458,9 @@ muparserx exceptions are converted at the wrapper boundary.
 ## Thread Safety
 
 `ExpressionRuntime` and expression handles are not thread-safe for concurrent
-evaluation because `Evaluate()` updates parser-bound variable storage.
+expression evaluation because `Evaluate()` updates parser-bound variable
+storage. The `const` evaluation APIs are logically read-only from the caller's
+perspective, but they still mutate internal parser-bound storage.
 
 Use one runtime instance per thread for parallel evaluation. `TableFunction`
 objects are immutable after construction and may be shared internally.

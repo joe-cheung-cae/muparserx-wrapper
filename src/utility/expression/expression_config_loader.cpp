@@ -5,6 +5,7 @@
 
 #include <fstream>
 #include <cmath>
+#include <cstdint>
 #include <nlohmann/json.hpp>
 #include <set>
 #include <sstream>
@@ -28,11 +29,23 @@ void AddConstant(const std::string& name,
                  const std::string& value,
                  std::unordered_map<std::string, std::string>& raw_constants)
 {
+    if (name.empty())
+    {
+        throw ConfigError("name must not be empty");
+    }
     if (raw_constants.find(name) != raw_constants.end())
     {
         throw ConfigError("duplicate global symbol '" + name + "'");
     }
     raw_constants[name] = value;
+}
+
+void RequireNonEmptyName(const std::string& context, const std::string& name)
+{
+    if (name.empty())
+    {
+        throw ConfigError(context + ": name must not be empty");
+    }
 }
 
 ExtrapolationMode ParseExtrapolation(const std::string& table_name, const Json& table)
@@ -172,9 +185,9 @@ void ParseTables(const Json& root, ExpressionRuntimeConfig& config)
                 throw ConfigError("tables[" + std::to_string(i) + "]: name must be a string");
             }
 
-            config.tables.push_back(ParseTableObject(
-                table_json["name"].get<std::string>(),
-                table_json));
+            const std::string name = table_json["name"].get<std::string>();
+            RequireNonEmptyName("tables[" + std::to_string(i) + "]", name);
+            config.tables.push_back(ParseTableObject(name, table_json));
         }
         return;
     }
@@ -186,6 +199,7 @@ void ParseTables(const Json& root, ExpressionRuntimeConfig& config)
 
     for (Json::const_iterator it = root["tables"].begin(); it != root["tables"].end(); ++it)
     {
+        RequireNonEmptyName("table '" + it.key() + "'", it.key());
         config.tables.push_back(ParseTableObject(it.key(), it.value()));
     }
 }
@@ -251,9 +265,9 @@ void ParseExpressions(const Json& root, ExpressionRuntimeConfig& config)
                 throw ConfigError("expressions[" + std::to_string(i) + "]: name must be a string");
             }
 
-            config.expressions.push_back(ParseExpressionObject(
-                expression_json["name"].get<std::string>(),
-                expression_json));
+            const std::string name = expression_json["name"].get<std::string>();
+            RequireNonEmptyName("expressions[" + std::to_string(i) + "]", name);
+            config.expressions.push_back(ParseExpressionObject(name, expression_json));
         }
         return;
     }
@@ -265,8 +279,37 @@ void ParseExpressions(const Json& root, ExpressionRuntimeConfig& config)
 
     for (Json::const_iterator it = root["expressions"].begin(); it != root["expressions"].end(); ++it)
     {
+        RequireNonEmptyName("expression '" + it.key() + "'", it.key());
         config.expressions.push_back(ParseExpressionObject(it.key(), it.value()));
     }
+}
+
+int ParseFunctionType(const Json& function_json, std::size_t index)
+{
+    if (!function_json.contains("function_type") ||
+        (!function_json["function_type"].is_number_integer() && !function_json["function_type"].is_number_unsigned()))
+    {
+        throw ConfigError("functions[" + std::to_string(index) + "]: function_type must be an integer");
+    }
+
+    if (function_json["function_type"].is_number_unsigned())
+    {
+        const std::uint64_t value = function_json["function_type"].get<std::uint64_t>();
+        if (value > 2)
+        {
+            throw ConfigError("functions[" + std::to_string(index) + "]: function_type unsupported '" +
+                              std::to_string(value) + "'");
+        }
+        return static_cast<int>(value);
+    }
+
+    const std::int64_t value = function_json["function_type"].get<std::int64_t>();
+    if (value < 0 || value > 2)
+    {
+        throw ConfigError("functions[" + std::to_string(index) + "]: function_type unsupported '" +
+                          std::to_string(value) + "'");
+    }
+    return static_cast<int>(value);
 }
 
 void ParseFunctionDefinition(const Json& function_json,
@@ -282,13 +325,9 @@ void ParseFunctionDefinition(const Json& function_json,
     {
         throw ConfigError("functions[" + std::to_string(index) + "]: name must be a string");
     }
-    if (!function_json.contains("function_type") || !function_json["function_type"].is_number_integer())
-    {
-        throw ConfigError("functions[" + std::to_string(index) + "]: function_type must be an integer");
-    }
-
     const std::string name = function_json["name"].get<std::string>();
-    const int function_type = function_json["function_type"].get<int>();
+    RequireNonEmptyName("functions[" + std::to_string(index) + "]", name);
+    const int function_type = ParseFunctionType(function_json, index);
 
     if (function_type == 0)
     {
@@ -312,7 +351,7 @@ void ParseFunctionDefinition(const Json& function_json,
         return;
     }
 
-    throw ConfigError("functions[" + std::to_string(index) + "]: unsupported function_type '" +
+    throw ConfigError("functions[" + std::to_string(index) + "]: function_type unsupported '" +
                       std::to_string(function_type) + "'");
 }
 

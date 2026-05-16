@@ -93,18 +93,18 @@ public:
             tables_.find(name);
         if (table != tables_.end())
         {
-            std::unordered_map<std::string, double>::const_iterator x = variables.find("x");
-            if (x != variables.end())
+            if (variables.empty())
             {
-                return table->second->Evaluate(x->second);
+                throw ExpressionError(ExpressionErrorCode::InvalidArgument,
+                                      "table '" + name + "' requires variable 'x'");
             }
-            if (variables.size() == 1)
+            if (variables.size() != 1)
             {
-                return table->second->Evaluate(variables.begin()->second);
+                throw ExpressionError(ExpressionErrorCode::InvalidArgument,
+                                      "table '" + name + "' expects exactly one variable");
             }
 
-            throw ExpressionError(ExpressionErrorCode::InvalidArgument,
-                                  "table '" + name + "' requires variable 'x'");
+            return table->second->Evaluate(variables.begin()->second);
         }
 
         std::unordered_map<std::string, double>::const_iterator constant = constants_.find(name);
@@ -161,6 +161,10 @@ private:
         for (std::unordered_map<std::string, double>::const_iterator it = config.constants.begin();
              it != config.constants.end(); ++it)
         {
+            if (it->first.empty())
+            {
+                throw ExpressionError(ExpressionErrorCode::ConfigError, "runtime item name must not be empty");
+            }
             if (!names.insert(it->first).second)
             {
                 throw ExpressionError(ExpressionErrorCode::ConfigError, "duplicate global symbol '" + it->first + "'");
@@ -168,6 +172,10 @@ private:
         }
         for (std::vector<TableConfig>::const_iterator it = config.tables.begin(); it != config.tables.end(); ++it)
         {
+            if (it->name.empty())
+            {
+                throw ExpressionError(ExpressionErrorCode::ConfigError, "runtime item name must not be empty");
+            }
             if (!names.insert(it->name).second)
             {
                 throw ExpressionError(ExpressionErrorCode::ConfigError, "duplicate global symbol '" + it->name + "'");
@@ -175,6 +183,10 @@ private:
         }
         for (std::vector<ExpressionConfig>::const_iterator it = config.expressions.begin(); it != config.expressions.end(); ++it)
         {
+            if (it->name.empty())
+            {
+                throw ExpressionError(ExpressionErrorCode::ConfigError, "runtime item name must not be empty");
+            }
             if (!names.insert(it->name).second)
             {
                 throw ExpressionError(ExpressionErrorCode::ConfigError, "duplicate global symbol '" + it->name + "'");

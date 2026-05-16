@@ -71,14 +71,15 @@ public:
     // state. File and JSON validation failures are reported as ExpressionError.
     void LoadFromJsonFile(const std::string& path);
 
-    // Returns a handle for ordered argument evaluation. The handle shares the
-    // compiled expression state owned by this runtime and remains valid after
-    // the runtime is moved, but concurrent evaluation still follows the runtime
-    // thread-safety rules because both use the same bound parser state.
+    // Returns a snapshot handle for ordered expression argument evaluation. The
+    // handle shares compiled expression state and remains valid after this
+    // runtime is moved or reloaded; after a reload it continues to evaluate the
+    // old compiled expression. Concurrent evaluation still follows the runtime
+    // thread-safety rules because handles use mutable parser-bound state.
     ExpressionHandle GetExpression(const std::string& name) const;
-    // Returns a handle specialized for expressions that declare exactly one
-    // runtime variable in wordable order. Requesting a non-unary expression is
-    // treated as an invalid argument error rather than a compile-time error.
+    // Returns a snapshot handle specialized for expressions that declare exactly
+    // one runtime variable in wordable order. This is expression-only; use
+    // EvaluateUnary() for unified constant/table/expression evaluation.
     UnaryExpressionHandle GetUnaryExpression(const std::string& name) const;
 
     // Returns the ordered runtime argument names for a named item loaded into
@@ -87,9 +88,9 @@ public:
     // if the name does not exist.
     std::vector<std::string> GetArgumentNames(const std::string& name) const;
 
-    // Evaluates a loaded runtime item by name. Expressions are evaluated with
-    // the supplied variable map, tables use variable "x" or the single supplied
-    // variable value, and constants require an empty variable map.
+    // Evaluates a loaded runtime item by name. Expressions require the supplied
+    // variable map to match wordable exactly, tables use the single supplied
+    // variable value (conventionally "x"), and constants require an empty map.
     double Evaluate(const std::string& name, const std::unordered_map<std::string, double>& variables) const;
 
     // Evaluates a loaded one-dimensional runtime item by name. Constants ignore

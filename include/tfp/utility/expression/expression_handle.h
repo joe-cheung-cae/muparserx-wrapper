@@ -37,7 +37,8 @@ private:
     friend class ExpressionRuntime;
     friend class detail::ExpressionRuntimeImpl;
     // Binds the handle to compiled shared state. Runtime factory methods use
-    // this constructor so handles can outlive moved runtime objects.
+    // this constructor so handles can outlive moved or reloaded runtime objects
+    // as snapshots of the expression state at lookup time.
     explicit ExpressionHandle(std::shared_ptr<detail::RuntimeExpression> expression);
 
     std::shared_ptr<detail::RuntimeExpression> expression_;
@@ -60,7 +61,8 @@ private:
     friend class ExpressionRuntime;
     friend class detail::ExpressionRuntimeImpl;
     // Binds the handle to a compiled expression already checked for arity 1 by
-    // ExpressionRuntime::GetUnaryExpression().
+    // ExpressionRuntime::GetUnaryExpression(). The handle is a snapshot of the
+    // expression state at lookup time.
     explicit UnaryExpressionHandle(std::shared_ptr<detail::RuntimeExpression> expression);
 
     std::shared_ptr<detail::RuntimeExpression> expression_;

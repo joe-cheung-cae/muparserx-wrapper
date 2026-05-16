@@ -204,7 +204,14 @@ int main()
         ExpressionErrorCode::InvalidArgument,
         "expression 'field' is not unary");
     TFP_REQUIRE_THROWS(ExpressionError, runtime.GetExpression("sum_xy").Evaluate(std::vector<double>{2.0}));
-    TFP_REQUIRE_THROWS(ExpressionError, runtime.Evaluate("fx", std::unordered_map<std::string, double>()));
+    RequireExpressionError(
+        [&]() { runtime.Evaluate("fx", std::unordered_map<std::string, double>()); },
+        ExpressionErrorCode::InvalidArgument,
+        "expression 'fx' missing variable 't'");
+    RequireExpressionError(
+        [&]() { runtime.Evaluate("fx", std::unordered_map<std::string, double>{{"t", 1.0}, {"unused", 2.0}}); },
+        ExpressionErrorCode::InvalidArgument,
+        "expression 'fx' received unexpected variable 'unused'");
     TFP_REQUIRE_THROWS_MESSAGE(ExpressionError,
                                runtime.Evaluate("rho0", std::unordered_map<std::string, double>{{"x", 1.0}}),
                                "constant 'rho0' expects no variables");
@@ -213,7 +220,10 @@ int main()
                                "table 'wind' requires variable 'x'");
     TFP_REQUIRE_THROWS_MESSAGE(ExpressionError,
                                runtime.Evaluate("wind", std::unordered_map<std::string, double>{{"t", 1.0}, {"y", 2.0}}),
-                               "table 'wind' requires variable 'x'");
+                               "table 'wind' expects exactly one variable");
+    TFP_REQUIRE_THROWS_MESSAGE(ExpressionError,
+                               runtime.Evaluate("wind", std::unordered_map<std::string, double>{{"x", 1.0}, {"unused", 2.0}}),
+                               "table 'wind' expects exactly one variable");
     TFP_REQUIRE_THROWS(ExpressionError, runtime.GetExpression("missing"));
     TFP_REQUIRE_THROWS(ExpressionError, runtime.GetArgumentNames("missing"));
     RequireExpressionError(
@@ -238,6 +248,15 @@ int main()
       "expressions": {"dup": {"expression": "1.0", "wordable": []}}
     })json"));
 
+    TFP_REQUIRE_THROWS_MESSAGE(ExpressionError,
+                               ExpressionRuntime().LoadFromJsonString(R"json({
+      "expressions": [
+        {"name": "base", "expression": "t", "wordable": ["t"]},
+        {"name": "derived", "expression": "base(t)", "wordable": ["t"]}
+      ]
+    })json"),
+                               "derived");
+
     ExpressionRuntime table_runtime;
     table_runtime.LoadFromJsonString(R"json({
       "tables": {
@@ -258,6 +277,39 @@ int main()
     invalid_config.constants["dup"] = 1.0;
     invalid_config.expressions.push_back(ExpressionConfig{"dup", "1.0", std::vector<std::string>()});
     TFP_REQUIRE_THROWS(ExpressionError, ExpressionRuntime().LoadFromConfig(invalid_config));
+
+    ExpressionRuntime reload_runtime = ExpressionRuntime::CreateFromJsonString(R"json({
+      "expressions": {"scale": {"expression": "2.0 * t", "wordable": ["t"]}}
+    })json");
+    const tfp::utility::UnaryExpressionHandle old_scale = reload_runtime.GetUnaryExpression("scale");
+    reload_runtime.LoadFromJsonString(R"json({
+      "expressions": {"scale": {"expression": "3.0 * t", "wordable": ["t"]}}
+    })json");
+    TFP_REQUIRE_NEAR(old_scale.Evaluate(4.0), 8.0, 1e-12);
+    TFP_REQUIRE_NEAR(reload_runtime.EvaluateUnary("scale", 4.0), 12.0, 1e-12);
+
+    ExpressionRuntime failed_load_runtime = ExpressionRuntime::CreateFromJsonString(R"json({
+      "expressions": {"scale": {"expression": "2.0 * t", "wordable": ["t"]}}
+    })json");
+    TFP_REQUIRE_THROWS(ExpressionError, failed_load_runtime.LoadFromJsonString(R"json({
+      "expressions": {"scale": {"expression": "missing + t", "wordable": ["t"]}}
+    })json"));
+    TFP_REQUIRE_NEAR(failed_load_runtime.EvaluateUnary("scale", 4.0), 8.0, 1e-12);
+
+    ExpressionRuntimeConfig empty_constant_name_config;
+    empty_constant_name_config.constants[""] = 1.0;
+    TFP_REQUIRE_THROWS(ExpressionError, ExpressionRuntime().LoadFromConfig(empty_constant_name_config));
+
+    ExpressionRuntimeConfig empty_table_name_config;
+    empty_table_name_config.tables.push_back(TableConfig{
+        "",
+        std::vector<std::array<double, 2> >{{0.0, 0.0}, {1.0, 1.0}},
+        ExtrapolationMode::Clamp});
+    TFP_REQUIRE_THROWS(ExpressionError, ExpressionRuntime().LoadFromConfig(empty_table_name_config));
+
+    ExpressionRuntimeConfig empty_expression_name_config;
+    empty_expression_name_config.expressions.push_back(ExpressionConfig{"", "t", std::vector<std::string>{"t"}});
+    TFP_REQUIRE_THROWS(ExpressionError, ExpressionRuntime().LoadFromConfig(empty_expression_name_config));
 
     ExpressionRuntimeConfig duplicate_wordable_config;
     duplicate_wordable_config.expressions.push_back(

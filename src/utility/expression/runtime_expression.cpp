@@ -40,9 +40,26 @@ RuntimeExpression::RuntimeExpression(
     }
     backend_.DefineVariables(wordable_);
 
-    backend_.SetExpression(expression_);
+    try
+    {
+        backend_.SetExpression(expression_);
+    }
+    catch (const ExpressionError& error)
+    {
+        throw ExpressionError(ExpressionErrorCode::CompileError,
+                              "expression '" + name_ + "' compile failed: " + error.what());
+    }
 
-    const std::vector<std::string> referenced_variables = backend_.GetReferencedVariables();
+    std::vector<std::string> referenced_variables;
+    try
+    {
+        referenced_variables = backend_.GetReferencedVariables();
+    }
+    catch (const ExpressionError& error)
+    {
+        throw ExpressionError(ExpressionErrorCode::CompileError,
+                              "expression '" + name_ + "' compile failed: " + error.what());
+    }
     for (std::vector<std::string>::const_iterator it = referenced_variables.begin(); it != referenced_variables.end(); ++it)
     {
         if (variable_indices_.find(*it) == variable_indices_.end())
@@ -127,6 +144,22 @@ double RuntimeExpression::EvaluateMap(const std::unordered_map<std::string, doub
                                   "expression '" + name_ + "' missing variable '" + wordable_[i] + "'");
         }
         args[i] = value->second;
+    }
+
+    if (variables.size() != wordable_.size())
+    {
+        for (std::unordered_map<std::string, double>::const_iterator it = variables.begin(); it != variables.end(); ++it)
+        {
+            if (variable_indices_.find(it->first) == variable_indices_.end())
+            {
+                throw ExpressionError(ExpressionErrorCode::InvalidArgument,
+                                      "expression '" + name_ + "' received unexpected variable '" + it->first + "'");
+            }
+        }
+
+        throw ExpressionError(ExpressionErrorCode::InvalidArgument,
+                              "expression '" + name_ + "' expected " + std::to_string(wordable_.size()) +
+                                  " variables, got " + std::to_string(variables.size()));
     }
 
     return Evaluate(args);
