@@ -117,10 +117,10 @@ int main()
     ExpressionRuntime numeric_constant_runtime;
     numeric_constant_runtime.LoadFromJsonString(R"json({
       "functions": [
-        {"name": "rho0", "function_type": 0, "value": 1000.0}
+        {"name": "magnetic_field", "function_type": 0, "value": 0.05}
       ]
     })json");
-    TFP_REQUIRE_NEAR(numeric_constant_runtime.EvaluateUnary("rho0", 123.0), 1000.0, 1e-12);
+    TFP_REQUIRE_NEAR(numeric_constant_runtime.EvaluateUnary("magnetic_field", 123.0), 0.05, 1e-12);
 
     ExpressionRuntime mixed_constant_runtime;
     mixed_constant_runtime.LoadFromJsonString(R"json({

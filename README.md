@@ -268,9 +268,9 @@ On Windows, the wrapper itself needs no `__declspec(dllexport)` or `__declspec(d
 - `1`: table
 - `2`: expression-like
 
-Factory-style constants use `value`, tables use `data` plus optional
-`extrapolation`, and expression-like functions use `expression` plus
-`wordable`.
+Factory-style constants use `value`, which may be either a string expression or
+a direct numeric value. Tables use `data` plus optional `extrapolation`, and
+expression-like functions use `expression` plus `wordable`.
 
 The loader still supports the legacy section-based schema below.
 
@@ -328,8 +328,9 @@ The runtime evaluation APIs also support these categories uniformly:
 
 ### Constants
 
-Constants are string expressions. They are resolved to `double` values during
-load:
+Legacy section constants are string expressions. Factory-style constants also
+accept direct numeric `value` fields. All constants are resolved to `double`
+values during load:
 
 ```json
 "constants": {
