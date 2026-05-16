@@ -114,6 +114,23 @@ int main()
     })json");
     TFP_REQUIRE_NEAR(factory_runtime.GetUnaryExpression("fx").Evaluate(0.5), 2000.0, 1e-12);
 
+    ExpressionRuntime numeric_constant_runtime;
+    numeric_constant_runtime.LoadFromJsonString(R"json({
+      "functions": [
+        {"name": "rho0", "function_type": 0, "value": 1000.0}
+      ]
+    })json");
+    TFP_REQUIRE_NEAR(numeric_constant_runtime.EvaluateUnary("rho0", 123.0), 1000.0, 1e-12);
+
+    ExpressionRuntime mixed_constant_runtime;
+    mixed_constant_runtime.LoadFromJsonString(R"json({
+      "functions": [
+        {"name": "rho0", "function_type": 0, "value": 1000.0},
+        {"name": "scale", "function_type": 0, "value": "2.0 * rho0"}
+      ]
+    })json");
+    TFP_REQUIRE_NEAR(mixed_constant_runtime.EvaluateUnary("scale", 123.0), 2000.0, 1e-12);
+
     TFP_REQUIRE_THROWS(ExpressionError, ExpressionRuntime().LoadFromJsonString(R"json({
       "functions": {}
     })json"));
@@ -218,6 +235,11 @@ int main()
     TFP_REQUIRE_THROWS(ExpressionError, ExpressionRuntime().LoadFromJsonString(R"json({
       "expressions": {"fx": {"expression": "t", "wordable": ["t", "t"]}}
     })json"));
+
+    TFP_REQUIRE_THROWS_MESSAGE(ExpressionError, ExpressionRuntime().LoadFromJsonString(R"json({
+      "expressions": {"fx": {"expression": "t", "wordable": [""]}}
+    })json"),
+                               "wordable variable name must not be empty");
 
     TFP_REQUIRE_THROWS(ExpressionError, ExpressionRuntime().LoadFromJsonString(R"json({
       "expressions": [

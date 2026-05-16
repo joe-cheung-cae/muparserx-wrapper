@@ -196,6 +196,11 @@ private:
             for (std::vector<std::string>::const_iterator wordable = it->wordable.begin();
                  wordable != it->wordable.end(); ++wordable)
             {
+                if (wordable->empty())
+                {
+                    throw ExpressionError(ExpressionErrorCode::ConfigError,
+                                          "expression '" + it->name + "' wordable variable name must not be empty");
+                }
                 if (!wordable_names.insert(*wordable).second)
                 {
                     throw ExpressionError(ExpressionErrorCode::ConfigError,

@@ -14,7 +14,8 @@ namespace utility
 // in dependency order, but unknown symbols and cycles are reported as
 // ExpressionError with ConstantError.
 std::unordered_map<std::string, double> ResolveConstants(
-    const std::unordered_map<std::string, std::string>& raw_constants);
+    const std::unordered_map<std::string, std::string>& raw_constants,
+    const std::unordered_map<std::string, double>& seed_constants = std::unordered_map<std::string, double>());
 
 } // namespace utility
 } // namespace tfp

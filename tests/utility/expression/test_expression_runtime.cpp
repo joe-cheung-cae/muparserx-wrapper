@@ -316,5 +316,12 @@ int main()
         ExpressionConfig{"dup_wordable", "t", std::vector<std::string>{"t", "t"}});
     TFP_REQUIRE_THROWS(ExpressionError, ExpressionRuntime().LoadFromConfig(duplicate_wordable_config));
 
+    ExpressionRuntimeConfig empty_wordable_name_config;
+    empty_wordable_name_config.expressions.push_back(
+        ExpressionConfig{"empty_wordable", "t", std::vector<std::string>{""}});
+    TFP_REQUIRE_THROWS_MESSAGE(ExpressionError,
+                               ExpressionRuntime().LoadFromConfig(empty_wordable_name_config),
+                               "wordable variable name must not be empty");
+
     return 0;
 }

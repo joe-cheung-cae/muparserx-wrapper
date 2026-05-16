@@ -27,17 +27,38 @@ ExpressionError ConfigError(const std::string& message)
 
 void AddConstant(const std::string& name,
                  const std::string& value,
+                 const ExpressionRuntimeConfig& config,
                  std::unordered_map<std::string, std::string>& raw_constants)
 {
     if (name.empty())
     {
         throw ConfigError("name must not be empty");
     }
-    if (raw_constants.find(name) != raw_constants.end())
+    if (raw_constants.find(name) != raw_constants.end() || config.constants.find(name) != config.constants.end())
     {
         throw ConfigError("duplicate global symbol '" + name + "'");
     }
     raw_constants[name] = value;
+}
+
+void AddResolvedConstant(const std::string& name,
+                         double value,
+                         ExpressionRuntimeConfig& config,
+                         const std::unordered_map<std::string, std::string>& raw_constants)
+{
+    if (name.empty())
+    {
+        throw ConfigError("name must not be empty");
+    }
+    if (!std::isfinite(value))
+    {
+        throw ConfigError("constant '" + name + "': value must be finite");
+    }
+    if (raw_constants.find(name) != raw_constants.end() || config.constants.find(name) != config.constants.end())
+    {
+        throw ConfigError("duplicate global symbol '" + name + "'");
+    }
+    config.constants[name] = value;
 }
 
 void RequireNonEmptyName(const std::string& context, const std::string& name)
@@ -143,7 +164,9 @@ TableConfig ParseTableObject(const std::string& table_name, const Json& table_js
     return table;
 }
 
-void ParseConstants(const Json& root, std::unordered_map<std::string, std::string>& raw_constants)
+void ParseConstants(const Json& root,
+                    ExpressionRuntimeConfig& config,
+                    std::unordered_map<std::string, std::string>& raw_constants)
 {
     if (!root.contains("constants"))
     {
@@ -160,7 +183,7 @@ void ParseConstants(const Json& root, std::unordered_map<std::string, std::strin
         {
             throw ConfigError("constant '" + it.key() + "' must be a string expression");
         }
-        AddConstant(it.key(), it.value().get<std::string>(), raw_constants);
+        AddConstant(it.key(), it.value().get<std::string>(), config, raw_constants);
     }
 }
 
@@ -232,6 +255,10 @@ ExpressionConfig ParseExpressionObject(const std::string& expression_name, const
             throw ConfigError("expression '" + expression_name + "': wordable values must be strings");
         }
         const std::string variable_name = variable.get<std::string>();
+        if (variable_name.empty())
+        {
+            throw ConfigError("expression '" + expression_name + "': wordable variable name must not be empty");
+        }
         if (!seen.insert(variable_name).second)
         {
             throw ConfigError("expression '" + expression_name + "': duplicate wordable variable '" + variable_name + "'");
@@ -331,11 +358,16 @@ void ParseFunctionDefinition(const Json& function_json,
 
     if (function_type == 0)
     {
-        if (!function_json.contains("value") || !function_json["value"].is_string())
+        if (!function_json.contains("value") || (!function_json["value"].is_string() && !function_json["value"].is_number()))
         {
-            throw ConfigError("function '" + name + "': value must be a string expression");
+            throw ConfigError("function '" + name + "': value must be a string expression or number");
         }
-        AddConstant(name, function_json["value"].get<std::string>(), raw_constants);
+        if (function_json["value"].is_number())
+        {
+            AddResolvedConstant(name, function_json["value"].get<double>(), config, raw_constants);
+            return;
+        }
+        AddConstant(name, function_json["value"].get<std::string>(), config, raw_constants);
         return;
     }
 
@@ -404,11 +436,11 @@ ExpressionRuntimeConfig LoadExpressionRuntimeConfigFromJsonObject(const nlohmann
     std::unordered_map<std::string, std::string> raw_constants;
     try
     {
-        ParseConstants(json_object, raw_constants);
+        ParseConstants(json_object, config, raw_constants);
         ParseTables(json_object, config);
         ParseExpressions(json_object, config);
         ParseFunctions(json_object, config, raw_constants);
-        config.constants = ResolveConstants(raw_constants);
+        config.constants = ResolveConstants(raw_constants, config.constants);
     }
     catch (const ExpressionError&)
     {
