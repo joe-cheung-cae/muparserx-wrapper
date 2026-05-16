@@ -42,6 +42,17 @@ compilation, variable registration, and table callback registration happen at
 load time. Evaluation only updates already-bound variable slots and calls the
 compiled parser.
 
+## Documentation
+
+The public API comments are written for Doxygen. Generate local API docs with:
+
+```bash
+doxygen docs/Doxyfile
+```
+
+The configuration indexes `include/`, `README.md`, and the example sources so
+the rendered docs include the usage contract as well as the declarations.
+
 ## Features
 
 - Loads constants from JSON.

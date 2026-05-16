@@ -10,42 +10,49 @@ namespace tfp
 namespace utility
 {
 
-// ExtrapolationMode controls how TableFunction handles inputs outside the
-// minimum and maximum configured x coordinates.
+/// @brief Controls how TableFunction handles inputs outside its configured
+/// x-domain.
 enum class ExtrapolationMode
 {
-    // Return the nearest endpoint y value outside the table range.
+    /// Return the nearest endpoint y value outside the table range.
     Clamp,
-    // Throw ExpressionError when x is outside the table range.
+    /// Throw ExpressionError when x is outside the table range.
     Error,
-    // Extend the first or last segment linearly outside the table range.
+    /// Extend the first or last segment linearly outside the table range.
     Linear
 };
 
-// Immutable one-dimensional lookup table with linear interpolation between
-// rows. Construction validates and normalizes rows, so Data() exposes sorted
-// storage after a TableFunction has been created successfully.
+/// @brief Immutable one-dimensional lookup table with linear interpolation.
+///
+/// Construction validates and normalizes rows, so Data() exposes sorted
+/// storage after a TableFunction has been created successfully.
 class TableFunction
 {
 public:
-    // TableFunction is immutable after construction and may be shared across
-    // threads. The constructor sorts rows by x and rejects duplicate or
-    // non-finite values before the table can be evaluated.
+    /// @brief Constructs an immutable table function.
+    /// @param name Symbol name used when registering the table in a runtime.
+    /// @param data Input rows as [x, y] pairs. Rows are sorted by x.
+    /// @param extrapolation Out-of-range evaluation policy.
+    ///
+    /// The constructor rejects duplicate x coordinates and non-finite values.
     TableFunction(std::string name, std::vector<std::array<double, 2> > data, ExtrapolationMode extrapolation);
 
-    // Returns the table symbol name. The reference remains valid for the
-    // lifetime of the TableFunction.
+    /// @brief Returns the table symbol name.
     const std::string& Name() const noexcept;
-    // Returns the configured out-of-range policy.
+
+    /// @brief Returns the configured out-of-range policy.
     ExtrapolationMode Extrapolation() const noexcept;
-    // Returns sorted [x, y] rows. The reference remains valid for the lifetime
-    // of the TableFunction and must not be used after destruction.
+
+    /// @brief Returns the normalized [x, y] rows in sorted x order.
     const std::vector<std::array<double, 2> >& Data() const noexcept;
 
-    // Evaluates the table at x using linear interpolation between the two
-    // surrounding rows and the configured extrapolation policy at the bounds.
-    // Throws ExpressionError for non-finite x or out-of-range x when the policy
-    // is ExtrapolationMode::Error.
+    /// @brief Evaluates the table at a single x coordinate.
+    /// @param x Query coordinate.
+    /// @return Interpolated or extrapolated y value.
+    ///
+    /// Uses linear interpolation between surrounding rows. Throws
+    /// ExpressionError for non-finite x or for out-of-range x when the policy
+    /// is ExtrapolationMode::Error.
     double Evaluate(double x) const;
 
 private:

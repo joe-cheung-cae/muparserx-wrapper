@@ -61,6 +61,7 @@ int main()
     tfp::utility::ExpressionRuntime runtime =
         tfp::utility::ExpressionRuntime::CreateFromJsonString(config);
 
+    // Use the unary handle when the runtime item has exactly one variable.
     const tfp::utility::UnaryExpressionHandle fx = runtime.GetUnaryExpression("fx");
     std::cout << "fx(t) using unary handle\n";
     for (double t = 0.0; t <= 2.0; t += 0.5)
@@ -68,10 +69,12 @@ int main()
         std::cout << "t = " << t << ", fx(t) = " << fx.Evaluate(t) << "\n";
     }
 
+    // Use the generic handle when the declared runtime variables are ordered.
     const tfp::utility::ExpressionHandle weighted_sum = runtime.GetExpression("weighted_sum");
     const double weighted_value = weighted_sum.Evaluate(std::vector<double>{2.0, 3.0});
     std::cout << "\nweighted_sum(x=2, y=3) = " << weighted_value << "\n";
 
+    // EvaluateUnary() covers constants, tables, and unary expressions.
     const double dynamic_pressure = runtime.EvaluateUnary("dynamic_pressure", 1.5);
     std::cout << "dynamic_pressure(t=1.5) = " << dynamic_pressure << "\n";
 
@@ -81,6 +84,7 @@ int main()
     const double density = runtime.EvaluateUnary("rho0", 123.0);
     std::cout << "rho0 through EvaluateUnary = " << density << "\n";
 
+    // Constants expose no arguments; tables expose {"x"}.
     std::cout << "wind argument name = " << runtime.GetArgumentNames("wind").front() << "\n";
     std::cout << "rho0 argument count = " << runtime.GetArgumentNames("rho0").size() << "\n";
 
