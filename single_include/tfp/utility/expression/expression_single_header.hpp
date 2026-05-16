@@ -1,7 +1,8 @@
 #ifndef TFP_UTILITY_EXPRESSION_SINGLE_HEADER_HPP
 #define TFP_UTILITY_EXPRESSION_SINGLE_HEADER_HPP
 
-// Header-only snapshot of the current expression runtime API.
+/// @file expression_single_header.hpp
+/// @brief Header-only snapshot of the expression runtime API.
 #include <algorithm>
 #include <array>
 #include <cmath>
@@ -29,38 +30,41 @@ namespace tfp
 namespace utility
 {
 
-// ExpressionErrorCode identifies which phase of the runtime pipeline reported
-// the failure so callers can distinguish configuration problems from runtime
-// lookup, compile, or evaluation failures.
+/// @brief Classifies expression runtime failures by pipeline stage.
+///
+/// Use this code to distinguish configuration, compilation, lookup, and
+/// evaluation failures without parsing the error string.
 enum class ExpressionErrorCode
 {
-    // JSON or in-memory configuration schema validation failed.
+    /// JSON or in-memory configuration schema validation failed.
     ConfigError,
-    // Table configuration failed validation during construction.
+    /// Table configuration failed validation during construction.
     TableError,
-    // Constant dependency resolution or constant expression evaluation failed.
+    /// Constant dependency resolution or constant expression evaluation failed.
     ConstantError,
-    // Parser binding, symbol definition, or expression compilation failed.
+    /// Parser binding, symbol definition, or expression compilation failed.
     CompileError,
-    // Evaluation failed after an expression or table had been compiled.
+    /// Evaluation failed after an expression or table had been compiled.
     EvaluationError,
-    // A requested expression or symbol name was not present.
+    /// A requested expression or symbol name was not present.
     NotFound,
-    // A caller supplied the wrong handle state, arity, variable set, or index.
+    /// A caller supplied the wrong handle state, arity, variable set, or index.
     InvalidArgument
 };
 
-// Exception type thrown by the expression runtime. The inherited what() message
-// is human-readable, while Code() provides stable phase-level classification.
+/// @brief Exception type thrown by the expression runtime.
+///
+/// The inherited what() message is human-readable, while Code() provides
+/// stable phase-level classification for programmatic handling.
 class ExpressionError : public std::runtime_error
 {
 public:
-    // Stores the supplied classification and message. The message is also
-    // passed to std::runtime_error and remains available through what().
+    /// @brief Stores the supplied classification and message.
+    /// @param code Stable phase-level error classification.
+    /// @param message Human-readable failure description exposed through what().
     ExpressionError(ExpressionErrorCode code, const std::string& message);
 
-    // Returns the classification associated with this exception without
-    // allocating or throwing.
+    /// @brief Returns the classification associated with this exception.
     ExpressionErrorCode Code() const noexcept;
 
 private:
@@ -75,42 +79,47 @@ namespace tfp
 namespace utility
 {
 
-// ExtrapolationMode controls how TableFunction handles inputs outside the
-// minimum and maximum configured x coordinates.
+/// @brief Controls how TableFunction handles inputs outside its configured
+/// x-domain.
 enum class ExtrapolationMode
 {
-    // Return the nearest endpoint y value outside the table range.
+    /// Return the nearest endpoint y value outside the table range.
     Clamp,
-    // Throw ExpressionError when x is outside the table range.
+    /// Throw ExpressionError when x is outside the table range.
     Error,
-    // Extend the first or last segment linearly outside the table range.
+    /// Extend the first or last segment linearly outside the table range.
     Linear
 };
 
-// Immutable one-dimensional lookup table with linear interpolation between
-// rows. Construction validates and normalizes rows, so Data() exposes sorted
-// storage after a TableFunction has been created successfully.
+/// @brief Immutable one-dimensional lookup table with linear interpolation.
+///
+/// Construction validates and normalizes rows, so Data() exposes sorted
+/// storage after a TableFunction has been created successfully.
 class TableFunction
 {
 public:
-    // TableFunction is immutable after construction and may be shared across
-    // threads. The constructor sorts rows by x and rejects duplicate or
-    // non-finite values before the table can be evaluated.
+    /// @brief Constructs an immutable table function.
+    /// @param name Symbol name used when registering the table in a runtime.
+    /// @param data Input rows as [x, y] pairs. Rows are sorted by x.
+    /// @param extrapolation Out-of-range evaluation policy.
+    ///
+    /// The constructor rejects duplicate x coordinates and non-finite values.
     TableFunction(std::string name, std::vector<std::array<double, 2> > data, ExtrapolationMode extrapolation);
 
-    // Returns the table symbol name. The reference remains valid for the
-    // lifetime of the TableFunction.
+    /// @brief Returns the table symbol name.
     const std::string& Name() const noexcept;
-    // Returns the configured out-of-range policy.
+    /// @brief Returns the configured out-of-range policy.
     ExtrapolationMode Extrapolation() const noexcept;
-    // Returns sorted [x, y] rows. The reference remains valid for the lifetime
-    // of the TableFunction and must not be used after destruction.
+    /// @brief Returns the normalized [x, y] rows in sorted x order.
     const std::vector<std::array<double, 2> >& Data() const noexcept;
 
-    // Evaluates the table at x using linear interpolation between the two
-    // surrounding rows and the configured extrapolation policy at the bounds.
-    // Throws ExpressionError for non-finite x or out-of-range x when the policy
-    // is ExtrapolationMode::Error.
+    /// @brief Evaluates the table at a single x coordinate.
+    /// @param x Query coordinate.
+    /// @return Interpolated or extrapolated y value.
+    ///
+    /// Uses linear interpolation between surrounding rows. Throws
+    /// ExpressionError for non-finite x or for out-of-range x when the policy
+    /// is ExtrapolationMode::Error.
     double Evaluate(double x) const;
 
 private:
@@ -127,45 +136,54 @@ namespace tfp
 namespace utility
 {
 
-// TableConfig describes one named one-dimensional lookup table loaded into the
-// runtime before expressions are compiled.
+/// @brief In-memory definition of one named one-dimensional lookup table.
 struct TableConfig
 {
-    // Symbol name used when expressions call the table as a function.
+    /// Symbol name used when expressions call the table as a function.
     std::string name;
-    // Rows are [x, y] pairs. Construction validates finite values, sorts rows
-    // by x, and rejects duplicate x coordinates.
+    /// Table rows expressed as [x, y] pairs.
+    ///
+    /// Runtime loading validates finite values, sorts rows by x, and rejects
+    /// duplicate x coordinates.
     std::vector<std::array<double, 2> > data;
-    // Boundary policy used when evaluating outside the configured x range.
+    /// Boundary policy used when evaluating outside the configured x range.
     ExtrapolationMode extrapolation = ExtrapolationMode::Clamp;
 };
 
-// ExpressionConfig describes one compiled expression entry. wordable defines
-// the ordered runtime-variable list and therefore the positional argument order
-// used by ExpressionHandle::Evaluate().
+/// @brief In-memory definition of one compiled expression entry.
+///
+/// The @c wordable field defines the ordered runtime-variable list and
+/// therefore the positional argument order used by ExpressionHandle::Evaluate().
 struct ExpressionConfig
 {
-    // Unique expression symbol name used for lookup from ExpressionRuntime.
+    /// Unique expression symbol name used for runtime lookup.
     std::string name;
-    // Parser expression text. It may refer to constants, tables, and the
-    // runtime variables listed in wordable.
+    /// Parser expression text.
+    ///
+    /// The expression may refer to constants, tables, and the runtime
+    /// variables listed in @c wordable.
     std::string expression;
-    // Ordered runtime-variable list. Names must be unique within the expression
-    // and every runtime variable referenced by expression must appear here.
+    /// Ordered runtime-variable list.
+    ///
+    /// Names must be unique within the expression, and every runtime variable
+    /// referenced by @c expression must appear here.
     std::vector<std::string> wordable;
 };
 
-// ExpressionRuntimeConfig is the normalized in-memory schema produced by the
-// loader before constants, tables, and expressions are compiled.
+/// @brief Normalized in-memory schema consumed by ExpressionRuntime.
+///
+/// JSON loading converts the supported external schema into this structure
+/// before constants, tables, and expressions are compiled.
 struct ExpressionRuntimeConfig
 {
-    // Named constants after loader normalization. JSON constant expressions are
-    // resolved to double before they are stored here; unresolved/cyclic
-    // dependencies fail during loading.
+    /// Named constants after loader normalization.
+    ///
+    /// JSON constant expressions are resolved to @c double before they are
+    /// stored here. Unresolved or cyclic dependencies fail during loading.
     std::unordered_map<std::string, double> constants;
-    // Table function definitions available to compiled expressions.
+    /// Table function definitions available to compiled expressions.
     std::vector<TableConfig> tables;
-    // Runtime expressions available by name after loading.
+    /// Runtime expressions available by name after loading.
     std::vector<ExpressionConfig> expressions;
 };
 
@@ -178,59 +196,77 @@ namespace utility
 {
 namespace detail
 {
-// Internal compiled expression representation shared by public handles.
+/// Internal compiled expression representation shared by public handles.
 class RuntimeExpression;
-// Internal pimpl type that creates handles for ExpressionRuntime.
+/// Internal pimpl type that creates handles for ExpressionRuntime.
 class ExpressionRuntimeImpl;
 }
 
-// ExpressionHandle is a lightweight reference to a compiled expression that
-// evaluates arguments in the order declared by ExpressionConfig::wordable.
+/// @brief Lightweight reference to a compiled expression.
+///
+/// Positional arguments are evaluated in the order declared by
+/// ExpressionConfig::wordable.
 class ExpressionHandle
 {
 public:
-    // A default-constructed handle is empty and throws ExpressionError when it
-    // is evaluated or queried for arity.
+    /// @brief Constructs an empty handle.
+    ///
+    /// An empty handle throws ExpressionError when evaluated or queried for
+    /// arity.
     ExpressionHandle();
 
-    // Evaluates the compiled expression with positional arguments matching the
-    // configured wordable order exactly. Throws ExpressionError if the handle
-    // is empty, the argument count is wrong, or parser evaluation fails.
+    /// @brief Evaluates the compiled expression with positional arguments.
+    /// @param args Positional argument values in wordable order.
+    /// @return The evaluated scalar result.
+    ///
+    /// Throws ExpressionError if the handle is empty, the argument count is
+    /// wrong, or parser evaluation fails.
     double Evaluate(const std::vector<double>& args) const;
-    // Returns the number of positional arguments required by Evaluate(). Throws
-    // ExpressionError if the handle is empty.
+    /// @brief Returns the number of positional arguments required by Evaluate().
+    ///
+    /// Throws ExpressionError if the handle is empty.
     std::size_t Arity() const;
 
 private:
     friend class ExpressionRuntime;
     friend class detail::ExpressionRuntimeImpl;
-    // Binds the handle to compiled shared state. Runtime factory methods use
-    // this constructor so handles can outlive moved or reloaded runtime objects
-    // as snapshots of the expression state at lookup time.
+    /// Binds the handle to compiled shared state.
+    ///
+    /// Runtime factory methods use this constructor so handles can outlive
+    /// moved or reloaded runtime objects as snapshots of the expression state
+    /// at lookup time.
     explicit ExpressionHandle(std::shared_ptr<detail::RuntimeExpression> expression);
 
     std::shared_ptr<detail::RuntimeExpression> expression_;
 };
 
-// UnaryExpressionHandle is the specialized fast path for expressions with one
-// runtime variable, avoiding vector construction at each evaluation.
+/// @brief Specialized fast path for unary expressions.
+///
+/// This avoids vector construction at each evaluation for expressions with one
+/// runtime variable.
 class UnaryExpressionHandle
 {
 public:
-    // A default-constructed unary handle is empty and throws ExpressionError
-    // if Evaluate() is called before it is bound to a compiled expression.
+    /// @brief Constructs an empty unary handle.
+    ///
+    /// An empty handle throws ExpressionError if Evaluate() is called before it
+    /// is bound to a compiled expression.
     UnaryExpressionHandle();
 
-    // Evaluates the compiled unary expression with a single runtime variable.
-    // Throws ExpressionError if the handle is empty or evaluation fails.
+    /// @brief Evaluates the compiled unary expression.
+    /// @param x Value supplied for the single runtime variable.
+    /// @return The evaluated scalar result.
+    ///
+    /// Throws ExpressionError if the handle is empty or evaluation fails.
     double Evaluate(double x) const;
 
 private:
     friend class ExpressionRuntime;
     friend class detail::ExpressionRuntimeImpl;
-    // Binds the handle to a compiled expression already checked for arity 1 by
-    // ExpressionRuntime::GetUnaryExpression(). The handle is a snapshot of the
-    // expression state at lookup time.
+    /// Binds the handle to compiled shared state already checked for arity 1.
+    ///
+    /// ExpressionRuntime::GetUnaryExpression() uses this constructor so the
+    /// handle remains a snapshot of the expression state at lookup time.
     explicit UnaryExpressionHandle(std::shared_ptr<detail::RuntimeExpression> expression);
 
     std::shared_ptr<detail::RuntimeExpression> expression_;
@@ -245,87 +281,118 @@ namespace utility
 {
 namespace detail
 {
-// Private implementation that owns compiled expressions and parser state.
+/// Private implementation that owns compiled expressions and parser state.
 class ExpressionRuntimeImpl;
 }
 
-// ExpressionRuntime owns the compiled expression graph created from a JSON
-// configuration and serves as the entry point for loading and evaluating it.
+/// @brief Owns the compiled expression graph for a loaded configuration.
+///
+/// Use ExpressionRuntime as the entry point for loading JSON/config objects and
+/// evaluating constants, tables, and expressions by name.
 class ExpressionRuntime
 {
 public:
-    // Evaluate mutates parser-bound variable storage. Use one runtime instance
-    // per thread when evaluating expressions concurrently.
+    /// @brief Constructs an empty runtime.
+    ///
+    /// Evaluation mutates parser-bound variable storage, so use one runtime
+    /// instance per thread when evaluating expressions concurrently.
     ExpressionRuntime();
-    // Releases compiled expressions and parser resources owned by this runtime.
+    /// @brief Releases compiled expressions and parser resources.
     ~ExpressionRuntime();
 
-    // Transfers ownership of compiled runtime state. Existing handles remain
-    // valid because they share compiled expressions independently.
+    /// @brief Transfers ownership of compiled runtime state.
+    ///
+    /// Existing handles remain valid because they share compiled expressions
+    /// independently.
     ExpressionRuntime(ExpressionRuntime&&) noexcept;
-    // Replaces this runtime with another runtime's compiled state.
+    /// @brief Replaces this runtime with another runtime's compiled state.
     ExpressionRuntime& operator=(ExpressionRuntime&&) noexcept;
 
-    // Runtime state is unique because it owns mutable parser bindings.
+    /// Copy construction is disabled because runtime state owns mutable parser
+    /// bindings.
     ExpressionRuntime(const ExpressionRuntime&) = delete;
-    // Copy assignment is disabled for the same ownership and thread-safety
-    // reasons as copy construction.
+    /// Copy assignment is disabled for the same ownership and thread-safety
+    /// reasons as copy construction.
     ExpressionRuntime& operator=(const ExpressionRuntime&) = delete;
 
-    // Constructs a runtime and loads an in-memory config before returning it.
-    // Throws ExpressionError for the same failures as LoadFromConfig().
+    /// @brief Constructs a runtime and loads an in-memory config.
+    /// @param config Normalized runtime configuration.
+    /// @return A loaded runtime instance.
+    ///
+    /// Throws ExpressionError for the same failures as LoadFromConfig().
     [[nodiscard]] static ExpressionRuntime CreateFromConfig(const ExpressionRuntimeConfig& config);
-    // Constructs a runtime from JSON text. Throws ExpressionError when parsing,
-    // validation, or compilation fails.
+    /// @brief Constructs a runtime from JSON text.
+    /// @param json_text JSON document text.
+    /// @return A loaded runtime instance.
+    ///
+    /// Throws ExpressionError when parsing, validation, or compilation fails.
     [[nodiscard]] static ExpressionRuntime CreateFromJsonString(const std::string& json_text);
-    // Constructs a runtime from a parsed JSON object. Throws ExpressionError
-    // when schema validation or compilation fails.
+    /// @brief Constructs a runtime from a parsed JSON object.
+    /// @param json_object Parsed JSON document.
+    /// @return A loaded runtime instance.
+    ///
+    /// Throws ExpressionError when schema validation or compilation fails.
     [[nodiscard]] static ExpressionRuntime CreateFromJsonObject(const nlohmann::json& json_object);
-    // Constructs a runtime from a JSON file path. Throws ExpressionError when
-    // file loading, parsing, validation, or compilation fails.
+    /// @brief Constructs a runtime from a JSON file path.
+    /// @param path File system path to a JSON document.
+    /// @return A loaded runtime instance.
+    ///
+    /// Throws ExpressionError when file loading, parsing, validation, or
+    /// compilation fails.
     [[nodiscard]] static ExpressionRuntime CreateFromJsonFile(const std::string& path);
 
-    // Loads constants, tables, and expressions from an in-memory normalized
-    // configuration object and replaces any previously compiled expressions
-    // owned by this runtime.
+    /// @brief Loads constants, tables, and expressions from a normalized config.
+    /// @param config Normalized runtime configuration.
+    ///
+    /// Replaces any previously compiled expressions owned by this runtime.
     void LoadFromConfig(const ExpressionRuntimeConfig& config);
-    // Loads constants, tables, and expressions from a JSON document string and
-    // replaces any previously compiled expressions owned by this runtime.
+    /// @brief Loads constants, tables, and expressions from JSON text.
+    /// @param json_text JSON document text.
+    ///
+    /// Replaces any previously compiled expressions owned by this runtime.
     void LoadFromJsonString(const std::string& json_text);
-    // Loads constants, tables, and expressions from a parsed JSON object and
-    // replaces any previously compiled expressions owned by this runtime.
-    // Schema validation and JSON conversion failures are reported as
-    // ExpressionError.
+    /// @brief Loads constants, tables, and expressions from a parsed JSON object.
+    /// @param json_object Parsed JSON document.
+    ///
+    /// Schema validation and JSON conversion failures are reported as
+    /// ExpressionError.
     void LoadFromJsonObject(const nlohmann::json& json_object);
-    // Loads the same JSON model from disk before compiling it into runtime
-    // state. File and JSON validation failures are reported as ExpressionError.
+    /// @brief Loads constants, tables, and expressions from a JSON file.
+    /// @param path File system path to a JSON document.
+    ///
+    /// File and JSON validation failures are reported as ExpressionError.
     void LoadFromJsonFile(const std::string& path);
 
-    // Returns a snapshot handle for ordered expression argument evaluation. The
-    // handle shares compiled expression state and remains valid after this
-    // runtime is moved or reloaded; after a reload it continues to evaluate the
-    // old compiled expression. Concurrent evaluation still follows the runtime
-    // thread-safety rules because handles use mutable parser-bound state.
+    /// @brief Returns a snapshot handle for ordered expression evaluation.
+    ///
+    /// The handle shares compiled expression state and remains valid after
+    /// this runtime is moved or reloaded. After a reload it continues to
+    /// evaluate the old compiled expression.
     ExpressionHandle GetExpression(const std::string& name) const;
-    // Returns a snapshot handle specialized for expressions that declare exactly
-    // one runtime variable in wordable order. This is expression-only; use
-    // EvaluateUnary() for unified constant/table/expression evaluation.
+    /// @brief Returns a snapshot handle for expressions with one runtime variable.
+    ///
+    /// This is expression-only; use EvaluateUnary() for unified
+    /// constant/table/expression evaluation.
     UnaryExpressionHandle GetUnaryExpression(const std::string& name) const;
 
-    // Returns the ordered runtime argument names for a named item loaded into
-    // this runtime. Constants return an empty list, tables return {"x"}, and
-    // expressions return their declared wordable order. Throws ExpressionError
-    // if the name does not exist.
+    /// @brief Returns the ordered runtime argument names for a named item.
+    ///
+    /// Constants return an empty list, tables return {"x"}, and expressions
+    /// return their declared wordable order. Throws ExpressionError if the
+    /// name does not exist.
     std::vector<std::string> GetArgumentNames(const std::string& name) const;
 
-    // Evaluates a loaded runtime item by name. Expressions require the supplied
-    // variable map to match wordable exactly, tables use the single supplied
-    // variable value (conventionally "x"), and constants require an empty map.
+    /// @brief Evaluates a loaded runtime item by name.
+    ///
+    /// Expressions require the supplied variable map to match wordable
+    /// exactly, tables use the single supplied variable value, and constants
+    /// require an empty map.
     double Evaluate(const std::string& name, const std::unordered_map<std::string, double>& variables) const;
 
-    // Evaluates a loaded one-dimensional runtime item by name. Constants ignore
-    // x, tables evaluate at x, and expressions must declare exactly one runtime
-    // variable.
+    /// @brief Evaluates a loaded one-dimensional runtime item by name.
+    ///
+    /// Constants ignore x, tables evaluate at x, and expressions must declare
+    /// exactly one runtime variable.
     double EvaluateUnary(const std::string& name, double x) const;
 
 private:

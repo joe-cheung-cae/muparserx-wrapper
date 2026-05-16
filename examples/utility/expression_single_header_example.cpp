@@ -62,6 +62,7 @@ int main()
     tfp::utility::ExpressionRuntime runtime =
         tfp::utility::ExpressionRuntime::CreateFromJsonString(config);
 
+    // The single-header API preserves the same unary fast path as the library build.
     const tfp::utility::UnaryExpressionHandle fx = runtime.GetUnaryExpression("fx");
     std::cout << "fx(t) using single-header unary handle\n";
     for (double t = 0.0; t <= 2.0; t += 0.5)
@@ -69,10 +70,12 @@ int main()
         std::cout << "t = " << t << ", fx(t) = " << fx.Evaluate(t) << "\n";
     }
 
+    // Multi-argument expressions still use the ordered positional handle.
     const tfp::utility::ExpressionHandle weighted_sum = runtime.GetExpression("weighted_sum");
     const double weighted_value = weighted_sum.Evaluate(std::vector<double>{2.0, 3.0});
     std::cout << "\nweighted_sum(x=2, y=3) = " << weighted_value << "\n";
 
+    // Evaluate() is convenient for low-frequency named-variable calls.
     const double dynamic_pressure = runtime.Evaluate(
         "dynamic_pressure",
         std::unordered_map<std::string, double>{{"t", 1.5}});

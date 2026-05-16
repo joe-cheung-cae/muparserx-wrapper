@@ -15,87 +15,121 @@ namespace utility
 {
 namespace detail
 {
-// Private implementation that owns compiled expressions and parser state.
+/// Private implementation that owns compiled expressions and parser state.
 class ExpressionRuntimeImpl;
 }
 
-// ExpressionRuntime owns the compiled expression graph created from a JSON
-// configuration and serves as the entry point for loading and evaluating it.
+/// @brief Owns the compiled expression graph for a loaded configuration.
+///
+/// Use ExpressionRuntime as the entry point for loading JSON/config objects and
+/// evaluating constants, tables, and expressions by name.
 class ExpressionRuntime
 {
 public:
-    // Evaluate mutates parser-bound variable storage. Use one runtime instance
-    // per thread when evaluating expressions concurrently.
+    /// @brief Constructs an empty runtime.
+    ///
+    /// Evaluation mutates parser-bound variable storage, so use one runtime
+    /// instance per thread when evaluating expressions concurrently.
     ExpressionRuntime();
-    // Releases compiled expressions and parser resources owned by this runtime.
+
+    /// @brief Releases compiled expressions and parser resources.
     ~ExpressionRuntime();
 
-    // Transfers ownership of compiled runtime state. Existing handles remain
-    // valid because they share compiled expressions independently.
+    /// @brief Transfers ownership of compiled runtime state.
+    ///
+    /// Existing handles remain valid because they share compiled expressions
+    /// independently.
     ExpressionRuntime(ExpressionRuntime&&) noexcept;
-    // Replaces this runtime with another runtime's compiled state.
+
+    /// @brief Replaces this runtime with another runtime's compiled state.
     ExpressionRuntime& operator=(ExpressionRuntime&&) noexcept;
 
-    // Runtime state is unique because it owns mutable parser bindings.
+    /// Copy construction is disabled because runtime state owns mutable parser
+    /// bindings.
     ExpressionRuntime(const ExpressionRuntime&) = delete;
-    // Copy assignment is disabled for the same ownership and thread-safety
-    // reasons as copy construction.
+
+    /// Copy assignment is disabled for the same ownership and thread-safety
+    /// reasons as copy construction.
     ExpressionRuntime& operator=(const ExpressionRuntime&) = delete;
 
-    // Constructs a runtime and loads an in-memory config before returning it.
-    // Throws ExpressionError for the same failures as LoadFromConfig().
+    /// @brief Constructs a runtime and loads an in-memory config.
+    /// @param config Normalized runtime configuration.
+    /// @return A loaded runtime instance.
+    ///
+    /// Throws ExpressionError for the same failures as LoadFromConfig().
     [[nodiscard]] static ExpressionRuntime CreateFromConfig(const ExpressionRuntimeConfig& config);
-    // Constructs a runtime from JSON text. Throws ExpressionError when parsing,
-    // validation, or compilation fails.
+    /// @brief Constructs a runtime from JSON text.
+    /// @param json_text JSON document text.
+    /// @return A loaded runtime instance.
+    ///
+    /// Throws ExpressionError when parsing, validation, or compilation fails.
     [[nodiscard]] static ExpressionRuntime CreateFromJsonString(const std::string& json_text);
-    // Constructs a runtime from a parsed JSON object. Throws ExpressionError
-    // when schema validation or compilation fails.
+    /// @brief Constructs a runtime from a parsed JSON object.
+    /// @param json_object Parsed JSON document.
+    /// @return A loaded runtime instance.
+    ///
+    /// Throws ExpressionError when schema validation or compilation fails.
     [[nodiscard]] static ExpressionRuntime CreateFromJsonObject(const nlohmann::json& json_object);
-    // Constructs a runtime from a JSON file path. Throws ExpressionError when
-    // file loading, parsing, validation, or compilation fails.
+    /// @brief Constructs a runtime from a JSON file path.
+    /// @param path File system path to a JSON document.
+    /// @return A loaded runtime instance.
+    ///
+    /// Throws ExpressionError when file loading, parsing, validation, or
+    /// compilation fails.
     [[nodiscard]] static ExpressionRuntime CreateFromJsonFile(const std::string& path);
 
-    // Loads constants, tables, and expressions from an in-memory normalized
-    // configuration object and replaces any previously compiled expressions
-    // owned by this runtime.
+    /// @brief Loads constants, tables, and expressions from a normalized config.
+    /// @param config Normalized runtime configuration.
+    ///
+    /// Replaces any previously compiled expressions owned by this runtime.
     void LoadFromConfig(const ExpressionRuntimeConfig& config);
-    // Loads constants, tables, and expressions from a JSON document string and
-    // replaces any previously compiled expressions owned by this runtime.
+    /// @brief Loads constants, tables, and expressions from JSON text.
+    /// @param json_text JSON document text.
+    ///
+    /// Replaces any previously compiled expressions owned by this runtime.
     void LoadFromJsonString(const std::string& json_text);
-    // Loads constants, tables, and expressions from a parsed JSON object and
-    // replaces any previously compiled expressions owned by this runtime.
-    // Schema validation and JSON conversion failures are reported as
-    // ExpressionError.
+    /// @brief Loads constants, tables, and expressions from a parsed JSON object.
+    /// @param json_object Parsed JSON document.
+    ///
+    /// Schema validation and JSON conversion failures are reported as
+    /// ExpressionError.
     void LoadFromJsonObject(const nlohmann::json& json_object);
-    // Loads the same JSON model from disk before compiling it into runtime
-    // state. File and JSON validation failures are reported as ExpressionError.
+    /// @brief Loads constants, tables, and expressions from a JSON file.
+    /// @param path File system path to a JSON document.
+    ///
+    /// File and JSON validation failures are reported as ExpressionError.
     void LoadFromJsonFile(const std::string& path);
 
-    // Returns a snapshot handle for ordered expression argument evaluation. The
-    // handle shares compiled expression state and remains valid after this
-    // runtime is moved or reloaded; after a reload it continues to evaluate the
-    // old compiled expression. Concurrent evaluation still follows the runtime
-    // thread-safety rules because handles use mutable parser-bound state.
+    /// @brief Returns a snapshot handle for ordered expression evaluation.
+    ///
+    /// The handle shares compiled expression state and remains valid after
+    /// this runtime is moved or reloaded. After a reload it continues to
+    /// evaluate the old compiled expression.
     ExpressionHandle GetExpression(const std::string& name) const;
-    // Returns a snapshot handle specialized for expressions that declare exactly
-    // one runtime variable in wordable order. This is expression-only; use
-    // EvaluateUnary() for unified constant/table/expression evaluation.
+    /// @brief Returns a snapshot handle for expressions with one runtime variable.
+    ///
+    /// This is expression-only; use EvaluateUnary() for unified
+    /// constant/table/expression evaluation.
     UnaryExpressionHandle GetUnaryExpression(const std::string& name) const;
 
-    // Returns the ordered runtime argument names for a named item loaded into
-    // this runtime. Constants return an empty list, tables return {"x"}, and
-    // expressions return their declared wordable order. Throws ExpressionError
-    // if the name does not exist.
+    /// @brief Returns the ordered runtime argument names for a named item.
+    ///
+    /// Constants return an empty list, tables return {"x"}, and expressions
+    /// return their declared wordable order. Throws ExpressionError if the
+    /// name does not exist.
     std::vector<std::string> GetArgumentNames(const std::string& name) const;
 
-    // Evaluates a loaded runtime item by name. Expressions require the supplied
-    // variable map to match wordable exactly, tables use the single supplied
-    // variable value (conventionally "x"), and constants require an empty map.
+    /// @brief Evaluates a loaded runtime item by name.
+    ///
+    /// Expressions require the supplied variable map to match wordable
+    /// exactly, tables use the single supplied variable value, and constants
+    /// require an empty map.
     double Evaluate(const std::string& name, const std::unordered_map<std::string, double>& variables) const;
 
-    // Evaluates a loaded one-dimensional runtime item by name. Constants ignore
-    // x, tables evaluate at x, and expressions must declare exactly one runtime
-    // variable.
+    /// @brief Evaluates a loaded one-dimensional runtime item by name.
+    ///
+    /// Constants ignore x, tables evaluate at x, and expressions must declare
+    /// exactly one runtime variable.
     double EvaluateUnary(const std::string& name, double x) const;
 
 private:

@@ -9,38 +9,41 @@ namespace tfp
 namespace utility
 {
 
-// ExpressionErrorCode identifies which phase of the runtime pipeline reported
-// the failure so callers can distinguish configuration problems from runtime
-// lookup, compile, or evaluation failures.
+/// @brief Classifies expression runtime failures by pipeline stage.
+///
+/// Use this code to distinguish configuration, compilation, lookup, and
+/// evaluation failures without parsing the error string.
 enum class ExpressionErrorCode
 {
-    // JSON or in-memory configuration schema validation failed.
+    /// JSON or in-memory configuration schema validation failed.
     ConfigError,
-    // Table configuration failed validation during construction.
+    /// Table configuration failed validation during construction.
     TableError,
-    // Constant dependency resolution or constant expression evaluation failed.
+    /// Constant dependency resolution or constant expression evaluation failed.
     ConstantError,
-    // Parser binding, symbol definition, or expression compilation failed.
+    /// Parser binding, symbol definition, or expression compilation failed.
     CompileError,
-    // Evaluation failed after an expression or table had been compiled.
+    /// Evaluation failed after an expression or table had been compiled.
     EvaluationError,
-    // A requested expression or symbol name was not present.
+    /// A requested expression or symbol name was not present.
     NotFound,
-    // A caller supplied the wrong handle state, arity, variable set, or index.
+    /// A caller supplied the wrong handle state, arity, variable set, or index.
     InvalidArgument
 };
 
-// Exception type thrown by the expression runtime. The inherited what() message
-// is human-readable, while Code() provides stable phase-level classification.
+/// @brief Exception type thrown by the expression runtime.
+///
+/// The inherited what() message is human-readable, while Code() provides
+/// stable phase-level classification for programmatic handling.
 class ExpressionError : public std::runtime_error
 {
 public:
-    // Stores the supplied classification and message. The message is also
-    // passed to std::runtime_error and remains available through what().
+    /// @brief Stores the supplied classification and message.
+    /// @param code Stable phase-level error classification.
+    /// @param message Human-readable failure description exposed through what().
     ExpressionError(ExpressionErrorCode code, const std::string& message);
 
-    // Returns the classification associated with this exception without
-    // allocating or throwing.
+    /// @brief Returns the classification associated with this exception.
     ExpressionErrorCode Code() const noexcept;
 
 private:
